@@ -1,0 +1,244 @@
+openapi: 3.0.4
+info:
+  version: 0.0.1
+  title: Nobody is Perfect - Go
+  description: |-
+    Simple Web application to make the sharing of written text easier.
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "OK"
+  /api/create/user:
+    post:
+      summary: Create a new user
+      description: Will create a new user with a UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  example: "john_doe"
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userId:
+                    type: string
+                    example: "123e4567-e89b-12d3-a456-426614174000"
+                  jwt:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+  /api/create/game:
+    post:
+      summary: Create a game tied to a user
+      description: Will create a new game for the user with a UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                  example: "123e4567-e89b-12d3-a456-426614174000"
+                jwt:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+      responses:
+        '201':
+          description: Game created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  gameId:
+                    type: string
+                    example: "123e4567-e89b-12d3-a456-426614174001"
+                  jwt:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "User is not allowed to create a game e.g. if he joined or created another game already"
+  /api/join/{gameId}:
+    post:
+      summary: Join a game
+      description: Will allow a user to join an existing game
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "123e4567-e89b-12d3-a456-426614174001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+                  example: "123e4567-e89b-12d3-a456-426614174000"
+                jwt:
+                  type: string
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+      responses:
+        '200':
+          description: User joined the game
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "User successfully joined the game"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "User is not allowed to join this game e.g. if he created it"
+  /api/order/{gameId}:
+    get:
+      summary: gets the play order of the users for the game
+      description: Will return the play order of the users for the game
+      parameters:
+          - name: gameId
+            in: path
+            required: true
+            schema:
+              type: object
+              properties:
+                gameId:
+                  type: string
+                  example: "123e4567-e89b-12d3-a456-426614174001"
+                jwt:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+
+      responses:
+        '200':
+          description: Play order retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  playOrder:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          example: "john_doe"
+                        place:
+                          type: integer
+                          example: 1
+                        uuid:
+                          type: string
+                          example: "123e4567-e89b-12d3-a456-426614174000"
+        '403':
+          description: Forbidden
+          content:
+              application/json:
+                schema:
+                    type: object
+                    properties:
+                      error:
+                          type: string
+                          example: "User is not allowed to view the play order e.g. if he is not part of the game"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Game not found"
+    put:
+        summary: Set the play order for the game
+        description: Will set the play order for the game
+        parameters:
+            - name: gameId
+              in: path
+              required: true
+              schema:
+                  type: string
+                  example: "123e4567-e89b-12d3-a456-426614174001"
+        requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                      playOrder:
+                        type: array
+                        items:
+                            type: object
+                            properties:
+                              uuid:
+                                  type: string
+                                  example: "123e4567-e89b-12d3-a456-426614174000"
+                              place:
+                                  type: integer
+                                  example: 1
+        responses:
+            '200':
+              description: Play order set successfully
+              content:
+                  application/json:
+                    schema:
+                        type: object
+                        properties:
+                          message:
+                              type: string
+                              example: "Play order set successfully"
+            '403':
+              description: Forbidden
+              content:
+                  application/json:
+                    schema:
+                        type: object
+                        properties:
+                          error:
+                              type: string
+                              example: "User is not allowed to set the play order e.g. if he is not part of the game"
