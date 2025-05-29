@@ -41,12 +41,12 @@ paths:
               schema:
                 type: object
                 properties:
-                  userId:
+                  userUUID:
                     type: string
                     example: "123e4567-e89b-12d3-a456-426614174000"
-                  jwt:
+                  userToken:
                     type: string
-                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+                    example: "123e4567-e89b-12d3-a456-426614174000"
   /api/create/game:
     post:
       summary: Create a game tied to a user
@@ -58,12 +58,12 @@ paths:
             schema:
               type: object
               properties:
-                userId:
+                userUUID:
                   type: string
                   example: "123e4567-e89b-12d3-a456-426614174000"
-                jwt:
+                userToken:
                   type: string
-                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+                  example: "123e4567-e89b-12d3-a456-426614174000"
       responses:
         '201':
           description: Game created
@@ -75,9 +75,6 @@ paths:
                   gameId:
                     type: string
                     example: "123e4567-e89b-12d3-a456-426614174001"
-                  jwt:
-                    type: string
-                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
         '403':
           description: Forbidden
           content:
@@ -106,12 +103,9 @@ paths:
             schema:
               type: object
               properties:
-                userId:
+                userToken:
                   type: string
                   example: "123e4567-e89b-12d3-a456-426614174000"
-                jwt:
-                  type: string
-                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
       responses:
         '200':
           description: User joined the game
@@ -147,9 +141,9 @@ paths:
                 gameId:
                   type: string
                   example: "123e4567-e89b-12d3-a456-426614174001"
-                jwt:
-                    type: string
-                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+                userToken:
+                  type: string
+                  example: "123e4567-e89b-12d3-a456-426614174000"
 
       responses:
         '200':
@@ -164,13 +158,13 @@ paths:
                     items:
                       type: object
                       properties:
-                        name:
+                        username:
                           type: string
                           example: "john_doe"
                         place:
                           type: integer
                           example: 1
-                        uuid:
+                        userUUID:
                           type: string
                           example: "123e4567-e89b-12d3-a456-426614174000"
         '403':
@@ -215,7 +209,7 @@ paths:
                         items:
                             type: object
                             properties:
-                              uuid:
+                              userUUID:
                                   type: string
                                   example: "123e4567-e89b-12d3-a456-426614174000"
                               place:
