@@ -55,6 +55,7 @@ paths:
                   userToken:
                     type: string
                     example: "123e4567-e89b-12d3-a456-426614174000"
+                    description: used as Bearer token for authentication
   /api/create/game:
     post:
       summary: Create a game tied to a user
@@ -81,7 +82,7 @@ paths:
                 properties:
                   gameId:
                     type: string
-                    example: "123e4567-e89b-12d3-a456-426614174001"
+                    example: "chug.value.funds"
         '403':
           description: Forbidden
           content:
@@ -104,7 +105,7 @@ paths:
           required: true
           schema:
             type: string
-            example: "123e4567-e89b-12d3-a456-426614174001"
+            example: "chug.value.funds"
       requestBody:
         required: true
         content:
@@ -151,7 +152,7 @@ paths:
               properties:
                 gameId:
                   type: string
-                  example: "123e4567-e89b-12d3-a456-426614174001"
+                  example: "chug.value.funds"
       responses:
         '200':
           description: Play order retrieved
@@ -205,7 +206,7 @@ paths:
               required: true
               schema:
                   type: string
-                  example: "123e4567-e89b-12d3-a456-426614174001"
+                  example: "chug.value.funds"
         requestBody:
             required: true
             content:
@@ -257,7 +258,7 @@ paths:
           required: true
           schema:
             type: string
-            example: "123e4567-e89b-12d3-a456-426614174001"
+            example: "chug.value.funds"
       requestBody:
         required: true
         content:
@@ -291,8 +292,8 @@ paths:
                     example: "User is not allowed to start the game e.g. if he is not part of the game"
   /api/game/{gameId}/status:
     get:
-      summary: Start the game
-      description: Will start the game for the users
+      summary: Get the status of the game
+      description: Will return the status of the game including users and game master
       security:
         - BearerAuth: []
       parameters:
@@ -301,7 +302,7 @@ paths:
           required: true
           schema:
             type: string
-            example: "123e4567-e89b-12d3-a456-426614174001"
+            example: "chug.value.funds"
       responses:
         '200':
           description: Status of the game
@@ -354,7 +355,7 @@ paths:
           required: true
           schema:
             type: string
-            example: "123e4567-e89b-12d3-a456-426614174001"
+            example: "chug.value.funds"
       requestBody:
         required: true
         content:
@@ -389,7 +390,7 @@ paths:
               required: true
               schema:
                   type: string
-                  example: "123e4567-e89b-12d3-a456-426614174001"
+                  example: "chug.value.funds"
         responses:
             '200':
               description: Answers retrieved successfully
@@ -431,7 +432,7 @@ paths:
           required: true
           schema:
             type: string
-            example: "123e4567-e89b-12d3-a456-426614174001"
+            example: "chug.value.funds"
       requestBody:
         required: true
         content:
@@ -477,7 +478,7 @@ paths:
           required: true
           schema:
             type: string
-            example: "123e4567-e89b-12d3-a456-426614174001"
+            example: "chug.value.funds"
       requestBody:
         required: true
         content:
@@ -521,7 +522,7 @@ paths:
           required: true
           schema:
             type: string
-            example: "123e4567-e89b-12d3-a456-426614174001"
+            example: "chug.value.funds"
       responses:
         '200':
           description: Answers and votes revealed successfully
@@ -574,7 +575,7 @@ paths:
           required: true
           schema:
             type: string
-            example: "123e4567-e89b-12d3-a456-426614174001"
+            example: "chug.value.funds"
       responses:
         '200':
           description: Moved to the next round successfully
@@ -608,7 +609,7 @@ paths:
           required: true
           schema:
             type: string
-            example: "123e4567-e89b-12d3-a456-426614174001"
+            example: "chug.value.funds"
       responses:
         '200':
           description: Game finished successfully
