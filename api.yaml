@@ -4,6 +4,14 @@ info:
   title: Nobody is Perfect - Go
   description: |-
     Simple Web application to make the sharing of written text easier.
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: UUID
+
 paths:
   /api/health:
     get:
@@ -51,6 +59,8 @@ paths:
     post:
       summary: Create a game tied to a user
       description: Will create a new game for the user with a UUID
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -59,9 +69,6 @@ paths:
               type: object
               properties:
                 userUUID:
-                  type: string
-                  example: "123e4567-e89b-12d3-a456-426614174000"
-                userToken:
                   type: string
                   example: "123e4567-e89b-12d3-a456-426614174000"
       responses:
@@ -89,6 +96,8 @@ paths:
     post:
       summary: Join a game
       description: Will allow a user to join an existing game
+      security:
+        - BearerAuth: []
       parameters:
         - name: gameId
           in: path
@@ -103,7 +112,7 @@ paths:
             schema:
               type: object
               properties:
-                userToken:
+                userUUID:
                   type: string
                   example: "123e4567-e89b-12d3-a456-426614174000"
       responses:
@@ -131,6 +140,8 @@ paths:
     get:
       summary: gets the play order of the users for the game
       description: Will return the play order of the users for the game
+      security:
+        - BearerAuth: []
       parameters:
           - name: gameId
             in: path
@@ -141,10 +152,6 @@ paths:
                 gameId:
                   type: string
                   example: "123e4567-e89b-12d3-a456-426614174001"
-                userToken:
-                  type: string
-                  example: "123e4567-e89b-12d3-a456-426614174000"
-
       responses:
         '200':
           description: Play order retrieved
@@ -190,6 +197,8 @@ paths:
     put:
         summary: Set the play order for the game
         description: Will set the play order for the game
+        security:
+          - BearerAuth: []
         parameters:
             - name: gameId
               in: path
@@ -236,3 +245,389 @@ paths:
                           error:
                               type: string
                               example: "User is not allowed to set the play order e.g. if he is not part of the game"
+  /api/game/{gameId}/start:
+    post:
+      summary: Start the game
+      description: Will start the game for the users
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "123e4567-e89b-12d3-a456-426614174001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userUUID:
+                  type: string
+                  example: "123e4567-e89b-12d3-a456-426614174000"
+      responses:
+        '200':
+          description: Game started successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Game started successfully"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "User is not allowed to start the game e.g. if he is not part of the game"
+  /api/game/{gameId}/status:
+    get:
+      summary: Start the game
+      description: Will start the game for the users
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "123e4567-e89b-12d3-a456-426614174001"
+      responses:
+        '200':
+          description: Status of the game
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                    status:
+                      type: integer
+                      example: 1
+                      description: Status of the game
+                    users:
+                        type: array
+                        items:
+                            type: object
+                            properties:
+                              userUUID:
+                                  type: string
+                                  example: "123e4567-e89b-12d3-a456-426614174001"
+                              username:
+                                  type: string
+                                  example: "john_doe"
+                    gameMasterUUID:
+                      type: string
+                      example: "123e4567-e89b-12d3-a456-426614174000"
+                    receivedAnswers:
+                      type: integer
+                      example: 3
+                      description: Get the number of answers received from the players
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "User is not allowed to get the status of the game e.g. if he is not part of the game"
+  /api/game/{gameId}/answers:
+    post:
+      summary: Send an answer for the game
+      description: Will allow a user to send an answer for the game
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "123e4567-e89b-12d3-a456-426614174001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                answer:
+                  type: string
+                  example: "This is my answer to the question"
+      responses:
+        '200':
+          description: Received the answer
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "User is not allowed to send an answer e.g. if he is not part of the game or the game has not started yet"
+    get:
+        summary: Get the answers for the game
+        description: Will return the answers for the game only if you are game master
+        security:
+          - BearerAuth: []
+        parameters:
+            - name: gameId
+              in: path
+              required: true
+              schema:
+                  type: string
+                  example: "123e4567-e89b-12d3-a456-426614174001"
+        responses:
+            '200':
+              description: Answers retrieved successfully
+              content:
+                  application/json:
+                    schema:
+                      type: object
+                      properties:
+                        answers:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                  answerUUID:
+                                    type: string
+                                    example: "123e4567-e89b-12d3-a456-426614174000"
+                                  answer:
+                                    type: string
+                                    example: "A: This is my answer to the question"
+            '403':
+              description: Forbidden
+              content:
+                  application/json:
+                    schema:
+                        type: object
+                        properties:
+                          error:
+                              type: string
+                              example: "User is not allowed to view the answers e.g. if he is not part of the game or the game has not started yet"
+  /api/game/{gameId}/answers/selectValids:
+    post:
+      summary: Select valid answers for the game
+      description: Will allow the game master to select valid answers for the game
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "123e4567-e89b-12d3-a456-426614174001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                validAnswers:
+                  type: array
+                  items:
+                    type: string
+                    example: "123e4567-e89b-12d3-a456-426614174000"
+      responses:
+        '200':
+          description: Valid answers selected successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Valid answers selected successfully"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "User is not allowed to select valid answers e.g. if he is not part of the game or the game has not started yet"
+  /api/game/{gameId}/vote:
+    post:
+      summary: Vote for an answer in the game
+      description: Will allow a user to vote for an answer in the game
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "123e4567-e89b-12d3-a456-426614174001"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                answerUUID:
+                  type: string
+                  example: "123e4567-e89b-12d3-a456-426614174000"
+      responses:
+        '200':
+          description: Vote recorded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Vote recorded successfully"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "User is not allowed to vote e.g. if he is not part of the game or the game has not started yet"
+  /api/game/{gameId}/reveal:
+    get:
+      summary: Reveal the answers and votes in the game
+      description: Will reveal the answers and votes in the game
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "123e4567-e89b-12d3-a456-426614174001"
+      responses:
+        '200':
+          description: Answers and votes revealed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  answers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        answerUUID:
+                          type: string
+                          example: "123e4567-e89b-12d3-a456-426614174000"
+                        answer:
+                          type: string
+                          example: "A: This is my answer to the question"
+                        votes:
+                          type: array
+                          items:
+                              type: object
+                              properties:
+                                userUUID:
+                                    type: string
+                                    example: "123e4567-e89b-12d3-a456-426614174001"
+                                username:
+                                    type: string
+                                    example: "john_doe"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "User is not allowed to reveal the answers and votes e.g. if he is not part of the game or the game has not started yet"
+  /api/game/{gameId}/next:
+    get:
+      summary: Move to the next round in the game
+      description: Will allow the game to move to the next round
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "123e4567-e89b-12d3-a456-426614174001"
+      responses:
+        '200':
+          description: Moved to the next round successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Moved to the next round successfully"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "User is not allowed to move to the next round e.g. if he is not part of the game or the game has not started yet"
+  /api/game/{gameId}/finish:
+    get:
+      summary: Finish the game
+      description: Will finish the game and clean up resources
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "123e4567-e89b-12d3-a456-426614174001"
+      responses:
+        '200':
+          description: Game finished successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Game finished successfully"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "User is not allowed to finish the game e.g. if he is not part of the game"
+
