@@ -156,17 +156,17 @@ type VoteUser struct {
 	Username *string `json:"username,omitempty"`
 }
 
-// PostApiCreateUserJSONRequestBody defines body for PostApiCreateUser for application/json ContentType.
-type PostApiCreateUserJSONRequestBody = CreateUserRequest
+// CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.
+type CreateUserJSONRequestBody = CreateUserRequest
 
-// PostApiGameGameIdAnswersJSONRequestBody defines body for PostApiGameGameIdAnswers for application/json ContentType.
-type PostApiGameGameIdAnswersJSONRequestBody = AnswerRequest
+// SendAnswerJSONRequestBody defines body for SendAnswer for application/json ContentType.
+type SendAnswerJSONRequestBody = AnswerRequest
 
-// PostApiGameGameIdAnswersSelectValidsJSONRequestBody defines body for PostApiGameGameIdAnswersSelectValids for application/json ContentType.
-type PostApiGameGameIdAnswersSelectValidsJSONRequestBody = SelectValidAnswersRequest
+// SelectValidAnswersJSONRequestBody defines body for SelectValidAnswers for application/json ContentType.
+type SelectValidAnswersJSONRequestBody = SelectValidAnswersRequest
 
-// PostApiGameGameIdVoteJSONRequestBody defines body for PostApiGameGameIdVote for application/json ContentType.
-type PostApiGameGameIdVoteJSONRequestBody = VoteRequest
+// VoteForAnswerJSONRequestBody defines body for VoteForAnswer for application/json ContentType.
+type VoteForAnswerJSONRequestBody = VoteRequest
 
-// PutApiOrderGameIdJSONRequestBody defines body for PutApiOrderGameId for application/json ContentType.
-type PutApiOrderGameIdJSONRequestBody = SetPlayOrderRequest
+// SetPlayOrderJSONRequestBody defines body for SetPlayOrder for application/json ContentType.
+type SetPlayOrderJSONRequestBody = SetPlayOrderRequest
