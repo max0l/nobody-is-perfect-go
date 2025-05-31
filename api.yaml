@@ -502,7 +502,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /api/game/{gameId}/answers/selectValids:
-    post:
+    put:
       summary: Select valid answers for the game
       description: Will allow the game master to select valid answers for the game
       security:
