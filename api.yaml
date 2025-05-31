@@ -250,6 +250,7 @@ paths:
   /api/health:
     get:
       summary: Health check
+      operationId: healthCheck
       responses:
         '200':
           description: OK
@@ -262,6 +263,7 @@ paths:
     post:
       summary: Create a new user
       description: Will create a new user with a UUID
+      operationId: createUser
       requestBody:
         required: true
         content:
@@ -280,6 +282,7 @@ paths:
     post:
       summary: Create a game tied to a user
       description: Will create a new game for the user with a UUID
+      operationId: createGame
       security:
         - BearerAuth: []
       responses:
@@ -300,6 +303,7 @@ paths:
     post:
       summary: Join a game
       description: Will allow a user to join an existing game
+      operationId: joinGame
       security:
         - BearerAuth: []
       parameters:
@@ -327,6 +331,7 @@ paths:
     get:
       summary: Gets the play order of the users for the game
       description: Will return the play order of the users for the game
+      operationId: getPlayOrder
       security:
         - BearerAuth: []
       parameters:
@@ -359,6 +364,7 @@ paths:
     put:
       summary: Set the play order for the game
       description: Will set the play order for the game
+      operationId: setPlayOrder
       security:
         - BearerAuth: []
       parameters:
@@ -392,6 +398,7 @@ paths:
     post:
       summary: Start the game
       description: Will start the game for the users
+      operationId: startGame
       security:
         - BearerAuth: []
       parameters:
@@ -419,6 +426,7 @@ paths:
     get:
       summary: Get the status of the game
       description: Will return the status of the game including users and game master
+      operationId: getGameStatus
       security:
         - BearerAuth: []
       parameters:
@@ -446,6 +454,7 @@ paths:
     post:
       summary: Send an answer for the game
       description: Will allow a user to send an answer for the game
+      operationId: sendAnswer
       security:
         - BearerAuth: []
       parameters:
@@ -478,6 +487,7 @@ paths:
     get:
       summary: Get the answers for the game
       description: Will return the answers for the game only if you are game master
+      operationId: getAnswers
       security:
         - BearerAuth: []
       parameters:
@@ -505,6 +515,7 @@ paths:
     put:
       summary: Select valid answers for the game
       description: Will allow the game master to select valid answers for the game
+      operationId: selectValidAnswers
       security:
         - BearerAuth: []
       parameters:
@@ -538,6 +549,7 @@ paths:
     post:
       summary: Vote for an answer in the game
       description: Will allow a user to vote for an answer in the game
+      operationId: voteForAnswer
       security:
         - BearerAuth: []
       parameters:
@@ -571,6 +583,7 @@ paths:
     get:
       summary: Reveal the answers and votes in the game
       description: Will reveal the answers and votes in the game
+      operationId: revealVotes
       security:
         - BearerAuth: []
       parameters:
@@ -598,6 +611,7 @@ paths:
     post:
       summary: Move to the next round in the game
       description: Will allow the game to move to the next round
+      operationId: nextRound
       security:
         - BearerAuth: []
       parameters:
@@ -625,6 +639,7 @@ paths:
     post:
       summary: Finish the game
       description: Will finish the game and clean up resources
+      operationId: finishGame
       security:
         - BearerAuth: []
       parameters:
