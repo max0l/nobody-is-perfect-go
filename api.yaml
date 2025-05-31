@@ -12,6 +12,240 @@ components:
       scheme: bearer
       bearerFormat: UUID
 
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Some error message"
+
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "OK"
+
+    User:
+      type: object
+      properties:
+        userUUID:
+          type: string
+          example: "123e4567-e89b-12d3-a456-426614174001"
+        username:
+          type: string
+          example: "john_doe"
+
+    UserToken:
+      type: object
+      properties:
+        userUUID:
+          type: string
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        userToken:
+          type: string
+          example: "123e4567-e89b-12d3-a456-426614174000"
+          description: Used as Bearer token for authentication
+
+    CreateUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          example: "john_doe"
+
+    GameCreatedResponse:
+      type: object
+      properties:
+        gameId:
+          type: string
+          example: "chug.value.funds"
+
+    JoinGameResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "User successfully joined the game"
+
+    PlayOrderUser:
+      type: object
+      properties:
+        username:
+          type: string
+          example: "john_doe"
+        place:
+          type: integer
+          example: 1
+        userUUID:
+          type: string
+          example: "123e4567-e89b-12d3-a456-426614174000"
+
+    PlayOrderResponse:
+      type: object
+      properties:
+        playOrder:
+          type: array
+          items:
+            $ref: "#/components/schemas/PlayOrderUser"
+
+    SetPlayOrderRequest:
+      type: object
+      properties:
+        playOrder:
+          type: array
+          items:
+            type: object
+            properties:
+              userUUID:
+                type: string
+                example: "123e4567-e89b-12d3-a456-426614174000"
+              place:
+                type: integer
+                example: 1
+
+    PlayOrderSetResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Play order set successfully"
+
+    GameStartedResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Game started successfully"
+
+    GameFinishedResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Game finished successfully"
+
+    NextRoundResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Moved to the next round successfully"
+
+    AnswerReceivedResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Received the answer"
+
+    ValidAnswersSelectedResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Valid answers selected successfully"
+
+    VoteRecordedResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Vote recorded successfully"
+
+    GameStatusResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+          example: 1
+          description: Status of the game
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        gameMasterUUID:
+          type: string
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        receivedAnswers:
+          type: integer
+          example: 3
+          description: Get the number of answers received from the players
+
+    AnswerRequest:
+      type: object
+      properties:
+        answer:
+          type: string
+          example: "This is my answer to the question"
+
+    AnswersResponse:
+      type: object
+      properties:
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Answer"
+
+    Answer:
+      type: object
+      properties:
+        answerUUID:
+          type: string
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        answer:
+          type: string
+          example: "A: This is my answer to the question"
+
+    SelectValidAnswersRequest:
+      type: object
+      properties:
+        validAnswers:
+          type: array
+          items:
+            type: string
+            example: "123e4567-e89b-12d3-a456-426614174000"
+
+    VoteRequest:
+      type: object
+      properties:
+        answerUUID:
+          type: string
+          example: "123e4567-e89b-12d3-a456-426614174000"
+
+    RevealVotesResponse:
+      type: object
+      properties:
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnswerWithVotes"
+
+    AnswerWithVotes:
+      type: object
+      properties:
+        answerUUID:
+          type: string
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        answer:
+          type: string
+          example: "A: This is my answer to the question"
+        votes:
+          type: array
+          items:
+            $ref: "#/components/schemas/VoteUser"
+
+    VoteUser:
+      type: object
+      properties:
+        userUUID:
+          type: string
+          example: "123e4567-e89b-12d3-a456-426614174001"
+        username:
+          type: string
+          example: "john_doe"
+
 paths:
   /api/health:
     get:
@@ -22,11 +256,8 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: "OK"
+                $ref: "#/components/schemas/HealthStatus"
+
   /api/create/user:
     post:
       summary: Create a new user
@@ -36,26 +267,15 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                username:
-                  type: string
-                  example: "john_doe"
+              $ref: "#/components/schemas/CreateUserRequest"
       responses:
         '201':
           description: User created
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  userUUID:
-                    type: string
-                    example: "123e4567-e89b-12d3-a456-426614174000"
-                  userToken:
-                    type: string
-                    example: "123e4567-e89b-12d3-a456-426614174000"
-                    description: used as Bearer token for authentication
+                $ref: "#/components/schemas/UserToken"
+
   /api/create/game:
     get:
       summary: Create a game tied to a user
@@ -68,21 +288,14 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  gameId:
-                    type: string
-                    example: "chug.value.funds"
+                $ref: "#/components/schemas/GameCreatedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "User is not allowed to create a game e.g. if he joined or created another game already"
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/join/{gameId}:
     get:
       summary: Join a game
@@ -102,130 +315,79 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "User successfully joined the game"
+                $ref: "#/components/schemas/JoinGameResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "User is not allowed to join this game e.g. if he created it"
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/order/{gameId}:
     get:
-      summary: gets the play order of the users for the game
+      summary: Gets the play order of the users for the game
       description: Will return the play order of the users for the game
       security:
         - BearerAuth: []
       parameters:
-          - name: gameId
-            in: path
-            required: true
-            schema:
-              type: object
-              properties:
-                gameId:
-                  type: string
-                  example: "chug.value.funds"
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "chug.value.funds"
       responses:
         '200':
           description: Play order retrieved
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  playOrder:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        username:
-                          type: string
-                          example: "john_doe"
-                        place:
-                          type: integer
-                          example: 1
-                        userUUID:
-                          type: string
-                          example: "123e4567-e89b-12d3-a456-426614174000"
+                $ref: "#/components/schemas/PlayOrderResponse"
         '403':
           description: Forbidden
           content:
-              application/json:
-                schema:
-                    type: object
-                    properties:
-                      error:
-                          type: string
-                          example: "User is not allowed to view the play order e.g. if he is not part of the game"
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         '404':
           description: Game not found
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "Game not found"
+                $ref: "#/components/schemas/ErrorResponse"
+
     put:
-        summary: Set the play order for the game
-        description: Will set the play order for the game
-        security:
-          - BearerAuth: []
-        parameters:
-            - name: gameId
-              in: path
-              required: true
+      summary: Set the play order for the game
+      description: Will set the play order for the game
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "chug.value.funds"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetPlayOrderRequest"
+      responses:
+        '200':
+          description: Play order set successfully
+          content:
+            application/json:
               schema:
-                  type: string
-                  example: "chug.value.funds"
-        requestBody:
-            required: true
-            content:
-              application/json:
-                schema:
-                  type: object
-                  properties:
-                      playOrder:
-                        type: array
-                        items:
-                            type: object
-                            properties:
-                              userUUID:
-                                  type: string
-                                  example: "123e4567-e89b-12d3-a456-426614174000"
-                              place:
-                                  type: integer
-                                  example: 1
-        responses:
-            '200':
-              description: Play order set successfully
-              content:
-                  application/json:
-                    schema:
-                        type: object
-                        properties:
-                          message:
-                              type: string
-                              example: "Play order set successfully"
-            '403':
-              description: Forbidden
-              content:
-                  application/json:
-                    schema:
-                        type: object
-                        properties:
-                          error:
-                              type: string
-                              example: "User is not allowed to set the play order e.g. if he is not part of the game"
+                $ref: "#/components/schemas/PlayOrderSetResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/game/{gameId}/start:
     get:
       summary: Start the game
@@ -245,21 +407,14 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Game started successfully"
+                $ref: "#/components/schemas/GameStartedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "User is not allowed to start the game e.g. if he is not part of the game"
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/game/{gameId}/status:
     get:
       summary: Get the status of the game
@@ -279,40 +434,14 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                    status:
-                      type: integer
-                      example: 1
-                      description: Status of the game
-                    users:
-                        type: array
-                        items:
-                            type: object
-                            properties:
-                              userUUID:
-                                  type: string
-                                  example: "123e4567-e89b-12d3-a456-426614174001"
-                              username:
-                                  type: string
-                                  example: "john_doe"
-                    gameMasterUUID:
-                      type: string
-                      example: "123e4567-e89b-12d3-a456-426614174000"
-                    receivedAnswers:
-                      type: integer
-                      example: 3
-                      description: Get the number of answers received from the players
+                $ref: "#/components/schemas/GameStatusResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "User is not allowed to get the status of the game e.g. if he is not part of the game"
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/game/{gameId}/answers:
     post:
       summary: Send an answer for the game
@@ -331,65 +460,47 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                answer:
-                  type: string
-                  example: "This is my answer to the question"
+              $ref: "#/components/schemas/AnswerRequest"
       responses:
         '200':
           description: Received the answer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnswerReceivedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "User is not allowed to send an answer e.g. if he is not part of the game or the game has not started yet"
+                $ref: "#/components/schemas/ErrorResponse"
+
     get:
-        summary: Get the answers for the game
-        description: Will return the answers for the game only if you are game master
-        security:
-          - BearerAuth: []
-        parameters:
-            - name: gameId
-              in: path
-              required: true
+      summary: Get the answers for the game
+      description: Will return the answers for the game only if you are game master
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "chug.value.funds"
+      responses:
+        '200':
+          description: Answers retrieved successfully
+          content:
+            application/json:
               schema:
-                  type: string
-                  example: "chug.value.funds"
-        responses:
-            '200':
-              description: Answers retrieved successfully
-              content:
-                  application/json:
-                    schema:
-                      type: object
-                      properties:
-                        answers:
-                            type: array
-                            items:
-                              type: object
-                              properties:
-                                  answerUUID:
-                                    type: string
-                                    example: "123e4567-e89b-12d3-a456-426614174000"
-                                  answer:
-                                    type: string
-                                    example: "A: This is my answer to the question"
-            '403':
-              description: Forbidden
-              content:
-                  application/json:
-                    schema:
-                        type: object
-                        properties:
-                          error:
-                              type: string
-                              example: "User is not allowed to view the answers e.g. if he is not part of the game or the game has not started yet"
+                $ref: "#/components/schemas/AnswersResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/game/{gameId}/answers/selectValids:
     post:
       summary: Select valid answers for the game
@@ -408,34 +519,21 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                validAnswers:
-                  type: array
-                  items:
-                    type: string
-                    example: "123e4567-e89b-12d3-a456-426614174000"
+              $ref: "#/components/schemas/SelectValidAnswersRequest"
       responses:
         '200':
           description: Valid answers selected successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Valid answers selected successfully"
+                $ref: "#/components/schemas/ValidAnswersSelectedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "User is not allowed to select valid answers e.g. if he is not part of the game or the game has not started yet"
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/game/{gameId}/vote:
     post:
       summary: Vote for an answer in the game
@@ -454,32 +552,21 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                answerUUID:
-                  type: string
-                  example: "123e4567-e89b-12d3-a456-426614174000"
+              $ref: "#/components/schemas/VoteRequest"
       responses:
         '200':
           description: Vote recorded successfully
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Vote recorded successfully"
+                $ref: "#/components/schemas/VoteRecordedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "User is not allowed to vote e.g. if he is not part of the game or the game has not started yet"
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/game/{gameId}/reveal:
     get:
       summary: Reveal the answers and votes in the game
@@ -499,40 +586,14 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  answers:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        answerUUID:
-                          type: string
-                          example: "123e4567-e89b-12d3-a456-426614174000"
-                        answer:
-                          type: string
-                          example: "A: This is my answer to the question"
-                        votes:
-                          type: array
-                          items:
-                              type: object
-                              properties:
-                                userUUID:
-                                    type: string
-                                    example: "123e4567-e89b-12d3-a456-426614174001"
-                                username:
-                                    type: string
-                                    example: "john_doe"
+                $ref: "#/components/schemas/RevealVotesResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "User is not allowed to reveal the answers and votes e.g. if he is not part of the game or the game has not started yet"
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/game/{gameId}/next:
     get:
       summary: Move to the next round in the game
@@ -552,21 +613,14 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Moved to the next round successfully"
+                $ref: "#/components/schemas/NextRoundResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "User is not allowed to move to the next round e.g. if he is not part of the game or the game has not started yet"
+                $ref: "#/components/schemas/ErrorResponse"
+
   /api/game/{gameId}/finish:
     get:
       summary: Finish the game
@@ -586,19 +640,10 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "Game finished successfully"
+                $ref: "#/components/schemas/GameFinishedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                    example: "User is not allowed to finish the game e.g. if he is not part of the game"
-
+                $ref: "#/components/schemas/ErrorResponse"
