@@ -57,21 +57,11 @@ paths:
                     example: "123e4567-e89b-12d3-a456-426614174000"
                     description: used as Bearer token for authentication
   /api/create/game:
-    post:
+    get:
       summary: Create a game tied to a user
       description: Will create a new game for the user with a UUID
       security:
         - BearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userUUID:
-                  type: string
-                  example: "123e4567-e89b-12d3-a456-426614174000"
       responses:
         '201':
           description: Game created
@@ -94,7 +84,7 @@ paths:
                     type: string
                     example: "User is not allowed to create a game e.g. if he joined or created another game already"
   /api/join/{gameId}:
-    post:
+    get:
       summary: Join a game
       description: Will allow a user to join an existing game
       security:
@@ -106,16 +96,6 @@ paths:
           schema:
             type: string
             example: "chug.value.funds"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userUUID:
-                  type: string
-                  example: "123e4567-e89b-12d3-a456-426614174000"
       responses:
         '200':
           description: User joined the game
@@ -247,7 +227,7 @@ paths:
                               type: string
                               example: "User is not allowed to set the play order e.g. if he is not part of the game"
   /api/game/{gameId}/start:
-    post:
+    get:
       summary: Start the game
       description: Will start the game for the users
       security:
@@ -259,16 +239,6 @@ paths:
           schema:
             type: string
             example: "chug.value.funds"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                userUUID:
-                  type: string
-                  example: "123e4567-e89b-12d3-a456-426614174000"
       responses:
         '200':
           description: Game started successfully
