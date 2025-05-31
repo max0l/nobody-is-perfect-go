@@ -277,7 +277,7 @@ paths:
                 $ref: "#/components/schemas/UserToken"
 
   /api/create/game:
-    get:
+    post:
       summary: Create a game tied to a user
       description: Will create a new game for the user with a UUID
       security:
@@ -297,7 +297,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /api/join/{gameId}:
-    get:
+    post:
       summary: Join a game
       description: Will allow a user to join an existing game
       security:
@@ -389,7 +389,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /api/game/{gameId}/start:
-    get:
+    post:
       summary: Start the game
       description: Will start the game for the users
       security:
@@ -595,7 +595,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /api/game/{gameId}/next:
-    get:
+    post:
       summary: Move to the next round in the game
       description: Will allow the game to move to the next round
       security:
@@ -622,7 +622,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
 
   /api/game/{gameId}/finish:
-    get:
+    post:
       summary: Finish the game
       description: Will finish the game and clean up resources
       security:
