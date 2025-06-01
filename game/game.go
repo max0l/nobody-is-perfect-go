@@ -1,13 +1,27 @@
 package game
 
 import (
+	"errors"
 	"github.com/google/uuid"
+	"sync"
 )
 
 type User struct {
 	token    uuid.UUID
 	username string
 	userID   uuid.UUID
+}
+
+func (u *User) GetUserToken() uuid.UUID {
+	return u.token
+}
+
+func (u *User) GetUserUsername() string {
+	return u.username
+}
+
+func (u *User) GetUserID() uuid.UUID {
+	return u.userID
 }
 
 type Answer struct {
@@ -26,6 +40,27 @@ type Games struct {
 type Service struct {
 	users map[uuid.UUID]*User
 	games map[string]*Games
+	Lock  sync.Mutex
+}
+
+func (s *Service) CreateUser(username *string) (*User, error) {
+	s.Lock.Lock()
+	if username == nil || *username == "" {
+		return nil, errors.New("no Username") // Handle error for empty username
+	}
+
+	userID := uuid.New()
+	token := uuid.New()
+
+	user := &User{
+		token:    token,
+		username: *username,
+		userID:   userID,
+	}
+
+	s.users[token] = user
+
+	return user, nil
 }
 
 func NewService() *Service {

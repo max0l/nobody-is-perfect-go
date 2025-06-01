@@ -4,33 +4,104 @@
 package api
 
 import (
-	"github.com/gin-gonic/gin"
+	"context"
+	"fmt"
 	"github.com/max0l/nobody-is-perfect-go/game"
-	"net/http"
 )
 
-type Server struct {
+type StrictServer struct {
 	gameService *game.Service
 }
 
-func NewServer() *Server {
-	return &Server{
+func (s *StrictServer) CreateGame(ctx context.Context, request CreateGameRequestObject) (CreateGameResponseObject, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *StrictServer) GetAnswers(ctx context.Context, request GetAnswersRequestObject) (GetAnswersResponseObject, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *StrictServer) SendAnswer(ctx context.Context, request SendAnswerRequestObject) (SendAnswerResponseObject, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *StrictServer) SelectValidAnswers(ctx context.Context, request SelectValidAnswersRequestObject) (SelectValidAnswersResponseObject, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *StrictServer) FinishGame(ctx context.Context, request FinishGameRequestObject) (FinishGameResponseObject, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *StrictServer) NextRound(ctx context.Context, request NextRoundRequestObject) (NextRoundResponseObject, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *StrictServer) RevealVotes(ctx context.Context, request RevealVotesRequestObject) (RevealVotesResponseObject, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *StrictServer) StartGame(ctx context.Context, request StartGameRequestObject) (StartGameResponseObject, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *StrictServer) GetGameStatus(ctx context.Context, request GetGameStatusRequestObject) (GetGameStatusResponseObject, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *StrictServer) VoteForAnswer(ctx context.Context, request VoteForAnswerRequestObject) (VoteForAnswerResponseObject, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *StrictServer) HealthCheck(ctx context.Context, request HealthCheckRequestObject) (HealthCheckResponseObject, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *StrictServer) JoinGame(ctx context.Context, request JoinGameRequestObject) (JoinGameResponseObject, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *StrictServer) GetPlayOrder(ctx context.Context, request GetPlayOrderRequestObject) (GetPlayOrderResponseObject, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (s *StrictServer) SetPlayOrder(ctx context.Context, request SetPlayOrderRequestObject) (SetPlayOrderResponseObject, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func NewServer() *StrictServer {
+	return &StrictServer{
 		gameService: game.NewService(),
 	}
 }
 
-func (s Server) PostApiCreateUser(ctx *gin.Context) {
-	var body CreateUserRequest
-	if err := ctx.ShouldBindJSON(&body); err != nil {
-		ctx.Status(http.StatusBadRequest)
-		ctx.Error(err)
-		return
-	}
+func (s *StrictServer) CreateUser(ctx context.Context, request CreateUserRequestObject) (CreateUserResponseObject, error) {
+	user, err := s.gameService.CreateUser(request.Body.Username)
 
-	userToken, userUUID = s.gameService.CreateUser(body.Username)
+	usertoken := user.GetUserToken().String()
+	useruuid := user.GetUserID().String()
 
-	ctx.JSON(http.StatusOK, UserToken{
-		UserToken:    userToken.String(),
-		UserUUID: userUUID.String(),
+	fmt.Printf("Created user with token %s and UUID %s", usertoken, useruuid)
+
+	if err == nil {
+		return CreateUser201JSONResponse{
+			UserToken: &usertoken,
+			UserUUID:  &useruuid,
+		}, err
 	}
+	return nil, err
 }
