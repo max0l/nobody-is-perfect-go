@@ -13,12 +13,42 @@ components:
       bearerFormat: UUID
 
   schemas:
-    ErrorResponse:
+    UUID:
+      type: string
+      minLength: 36
+      maxLength: 36
+      example: "123e4567-e89b-12d3-a456-426614174000"
+      x-go-type: uuid.UUID
+      x-go-type-import:
+        path: github.com/google/uuid
+
+    BadRequestResponse:
       type: object
       properties:
         error:
           type: string
-          example: "Some error message"
+          example: "Bad request, missing required fields"
+
+    UnauthorizedResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Unauthorized, invalid or missing token"
+
+    ForbiddenResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Forbidden, you do not have permission to access this resource"
+
+    GameNotFoundResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Game not found, please check the game ID"
 
     HealthStatus:
       type: object
@@ -31,8 +61,7 @@ components:
       type: object
       properties:
         userUUID:
-          type: string
-          example: "123e4567-e89b-12d3-a456-426614174001"
+          $ref: "#/components/schemas/UUID"
         username:
           type: string
           example: "john_doe"
@@ -41,12 +70,9 @@ components:
       type: object
       properties:
         userUUID:
-          type: string
-          example: "123e4567-e89b-12d3-a456-426614174000"
+          $ref: "#/components/schemas/UUID"
         userToken:
-          type: string
-          example: "123e4567-e89b-12d3-a456-426614174000"
-          description: Used as Bearer token for authentication
+          $ref: "#/components/schemas/UUID"
 
     CreateUserRequest:
       type: object
@@ -79,8 +105,7 @@ components:
           type: integer
           example: 1
         userUUID:
-          type: string
-          example: "123e4567-e89b-12d3-a456-426614174000"
+          $ref: "#/components/schemas/UUID"
 
     PlayOrderResponse:
       type: object
@@ -99,8 +124,7 @@ components:
             type: object
             properties:
               userUUID:
-                type: string
-                example: "123e4567-e89b-12d3-a456-426614174000"
+                $ref: "#/components/schemas/UUID"
               place:
                 type: integer
                 example: 1
@@ -166,8 +190,7 @@ components:
           items:
             $ref: "#/components/schemas/User"
         gameMasterUUID:
-          type: string
-          example: "123e4567-e89b-12d3-a456-426614174000"
+          $ref: "#/components/schemas/UUID"
         receivedAnswers:
           type: integer
           example: 3
@@ -192,8 +215,7 @@ components:
       type: object
       properties:
         answerUUID:
-          type: string
-          example: "123e4567-e89b-12d3-a456-426614174000"
+          $ref: "#/components/schemas/UUID"
         answer:
           type: string
           example: "A: This is my answer to the question"
@@ -204,15 +226,13 @@ components:
         validAnswers:
           type: array
           items:
-            type: string
-            example: "123e4567-e89b-12d3-a456-426614174000"
+            $ref: "#/components/schemas/UUID"
 
     VoteRequest:
       type: object
       properties:
         answerUUID:
-          type: string
-          example: "123e4567-e89b-12d3-a456-426614174000"
+          $ref: "#/components/schemas/UUID"
 
     RevealVotesResponse:
       type: object
@@ -226,8 +246,7 @@ components:
       type: object
       properties:
         answerUUID:
-          type: string
-          example: "123e4567-e89b-12d3-a456-426614174000"
+          $ref: "#/components/schemas/UUID"
         answer:
           type: string
           example: "A: This is my answer to the question"
@@ -240,8 +259,7 @@ components:
       type: object
       properties:
         userUUID:
-          type: string
-          example: "123e4567-e89b-12d3-a456-426614174001"
+          $ref: "#/components/schemas/UUID"
         username:
           type: string
           example: "john_doe"
@@ -277,6 +295,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserToken"
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForbiddenResponse"
 
   /api/create/game:
     post:
@@ -292,12 +322,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GameCreatedResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
 
   /api/join/{gameId}:
     post:
@@ -320,12 +362,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/JoinGameResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
   /api/order/{gameId}:
     get:
@@ -348,18 +408,24 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PlayOrderResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
         '404':
           description: Game not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
     put:
       summary: Set the play order for the game
@@ -387,12 +453,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PlayOrderSetResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
   /api/game/{gameId}/start:
     post:
@@ -415,12 +499,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GameStartedResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
   /api/game/{gameId}/status:
     get:
@@ -443,12 +545,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GameStatusResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
   /api/game/{gameId}/answers:
     post:
@@ -477,12 +597,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AnswerReceivedResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
     get:
       summary: Get the answers for the game
@@ -504,12 +642,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AnswersResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
   /api/game/{gameId}/answers/selectValids:
     put:
@@ -538,12 +694,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ValidAnswersSelectedResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
   /api/game/{gameId}/vote:
     post:
@@ -572,12 +746,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/VoteRecordedResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
   /api/game/{gameId}/reveal:
     get:
@@ -600,12 +792,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RevealVotesResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
   /api/game/{gameId}/next:
     post:
@@ -628,12 +838,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NextRoundResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
   /api/game/{gameId}/finish:
     post:
@@ -656,9 +884,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GameFinishedResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"

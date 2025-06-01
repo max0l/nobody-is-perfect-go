@@ -492,7 +492,25 @@ func (response CreateGame201JSONResponse) VisitCreateGameResponse(w http.Respons
 	return json.NewEncoder(w).Encode(response)
 }
 
-type CreateGame403JSONResponse ErrorResponse
+type CreateGame400JSONResponse BadRequestResponse
+
+func (response CreateGame400JSONResponse) VisitCreateGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateGame401JSONResponse UnauthorizedResponse
+
+func (response CreateGame401JSONResponse) VisitCreateGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateGame403JSONResponse ForbiddenResponse
 
 func (response CreateGame403JSONResponse) VisitCreateGameResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -518,6 +536,24 @@ func (response CreateUser201JSONResponse) VisitCreateUserResponse(w http.Respons
 	return json.NewEncoder(w).Encode(response)
 }
 
+type CreateUser400JSONResponse BadRequestResponse
+
+func (response CreateUser400JSONResponse) VisitCreateUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateUser403JSONResponse ForbiddenResponse
+
+func (response CreateUser403JSONResponse) VisitCreateUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetAnswersRequestObject struct {
 	GameId string `json:"gameId"`
 }
@@ -535,11 +571,38 @@ func (response GetAnswers200JSONResponse) VisitGetAnswersResponse(w http.Respons
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetAnswers403JSONResponse ErrorResponse
+type GetAnswers400JSONResponse BadRequestResponse
+
+func (response GetAnswers400JSONResponse) VisitGetAnswersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAnswers401JSONResponse UnauthorizedResponse
+
+func (response GetAnswers401JSONResponse) VisitGetAnswersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAnswers403JSONResponse ForbiddenResponse
 
 func (response GetAnswers403JSONResponse) VisitGetAnswersResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAnswers404JSONResponse GameNotFoundResponse
+
+func (response GetAnswers404JSONResponse) VisitGetAnswersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -562,11 +625,38 @@ func (response SendAnswer200JSONResponse) VisitSendAnswerResponse(w http.Respons
 	return json.NewEncoder(w).Encode(response)
 }
 
-type SendAnswer403JSONResponse ErrorResponse
+type SendAnswer400JSONResponse BadRequestResponse
+
+func (response SendAnswer400JSONResponse) VisitSendAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SendAnswer401JSONResponse UnauthorizedResponse
+
+func (response SendAnswer401JSONResponse) VisitSendAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SendAnswer403JSONResponse ForbiddenResponse
 
 func (response SendAnswer403JSONResponse) VisitSendAnswerResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SendAnswer404JSONResponse GameNotFoundResponse
+
+func (response SendAnswer404JSONResponse) VisitSendAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -589,11 +679,38 @@ func (response SelectValidAnswers200JSONResponse) VisitSelectValidAnswersRespons
 	return json.NewEncoder(w).Encode(response)
 }
 
-type SelectValidAnswers403JSONResponse ErrorResponse
+type SelectValidAnswers400JSONResponse BadRequestResponse
+
+func (response SelectValidAnswers400JSONResponse) VisitSelectValidAnswersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SelectValidAnswers401JSONResponse UnauthorizedResponse
+
+func (response SelectValidAnswers401JSONResponse) VisitSelectValidAnswersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SelectValidAnswers403JSONResponse ForbiddenResponse
 
 func (response SelectValidAnswers403JSONResponse) VisitSelectValidAnswersResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SelectValidAnswers404JSONResponse GameNotFoundResponse
+
+func (response SelectValidAnswers404JSONResponse) VisitSelectValidAnswersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -615,11 +732,38 @@ func (response FinishGame200JSONResponse) VisitFinishGameResponse(w http.Respons
 	return json.NewEncoder(w).Encode(response)
 }
 
-type FinishGame403JSONResponse ErrorResponse
+type FinishGame400JSONResponse BadRequestResponse
+
+func (response FinishGame400JSONResponse) VisitFinishGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type FinishGame401JSONResponse UnauthorizedResponse
+
+func (response FinishGame401JSONResponse) VisitFinishGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type FinishGame403JSONResponse ForbiddenResponse
 
 func (response FinishGame403JSONResponse) VisitFinishGameResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type FinishGame404JSONResponse GameNotFoundResponse
+
+func (response FinishGame404JSONResponse) VisitFinishGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -641,11 +785,38 @@ func (response NextRound200JSONResponse) VisitNextRoundResponse(w http.ResponseW
 	return json.NewEncoder(w).Encode(response)
 }
 
-type NextRound403JSONResponse ErrorResponse
+type NextRound400JSONResponse BadRequestResponse
+
+func (response NextRound400JSONResponse) VisitNextRoundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type NextRound401JSONResponse UnauthorizedResponse
+
+func (response NextRound401JSONResponse) VisitNextRoundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type NextRound403JSONResponse ForbiddenResponse
 
 func (response NextRound403JSONResponse) VisitNextRoundResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type NextRound404JSONResponse GameNotFoundResponse
+
+func (response NextRound404JSONResponse) VisitNextRoundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -667,11 +838,38 @@ func (response RevealVotes200JSONResponse) VisitRevealVotesResponse(w http.Respo
 	return json.NewEncoder(w).Encode(response)
 }
 
-type RevealVotes403JSONResponse ErrorResponse
+type RevealVotes400JSONResponse BadRequestResponse
+
+func (response RevealVotes400JSONResponse) VisitRevealVotesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RevealVotes401JSONResponse UnauthorizedResponse
+
+func (response RevealVotes401JSONResponse) VisitRevealVotesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RevealVotes403JSONResponse ForbiddenResponse
 
 func (response RevealVotes403JSONResponse) VisitRevealVotesResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RevealVotes404JSONResponse GameNotFoundResponse
+
+func (response RevealVotes404JSONResponse) VisitRevealVotesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -693,11 +891,38 @@ func (response StartGame200JSONResponse) VisitStartGameResponse(w http.ResponseW
 	return json.NewEncoder(w).Encode(response)
 }
 
-type StartGame403JSONResponse ErrorResponse
+type StartGame400JSONResponse BadRequestResponse
+
+func (response StartGame400JSONResponse) VisitStartGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartGame401JSONResponse UnauthorizedResponse
+
+func (response StartGame401JSONResponse) VisitStartGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartGame403JSONResponse ForbiddenResponse
 
 func (response StartGame403JSONResponse) VisitStartGameResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartGame404JSONResponse GameNotFoundResponse
+
+func (response StartGame404JSONResponse) VisitStartGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -719,11 +944,38 @@ func (response GetGameStatus200JSONResponse) VisitGetGameStatusResponse(w http.R
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetGameStatus403JSONResponse ErrorResponse
+type GetGameStatus400JSONResponse BadRequestResponse
+
+func (response GetGameStatus400JSONResponse) VisitGetGameStatusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetGameStatus401JSONResponse UnauthorizedResponse
+
+func (response GetGameStatus401JSONResponse) VisitGetGameStatusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetGameStatus403JSONResponse ForbiddenResponse
 
 func (response GetGameStatus403JSONResponse) VisitGetGameStatusResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetGameStatus404JSONResponse GameNotFoundResponse
+
+func (response GetGameStatus404JSONResponse) VisitGetGameStatusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -746,11 +998,38 @@ func (response VoteForAnswer200JSONResponse) VisitVoteForAnswerResponse(w http.R
 	return json.NewEncoder(w).Encode(response)
 }
 
-type VoteForAnswer403JSONResponse ErrorResponse
+type VoteForAnswer400JSONResponse BadRequestResponse
+
+func (response VoteForAnswer400JSONResponse) VisitVoteForAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type VoteForAnswer401JSONResponse UnauthorizedResponse
+
+func (response VoteForAnswer401JSONResponse) VisitVoteForAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type VoteForAnswer403JSONResponse ForbiddenResponse
 
 func (response VoteForAnswer403JSONResponse) VisitVoteForAnswerResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type VoteForAnswer404JSONResponse GameNotFoundResponse
+
+func (response VoteForAnswer404JSONResponse) VisitVoteForAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -788,11 +1067,38 @@ func (response JoinGame200JSONResponse) VisitJoinGameResponse(w http.ResponseWri
 	return json.NewEncoder(w).Encode(response)
 }
 
-type JoinGame403JSONResponse ErrorResponse
+type JoinGame400JSONResponse BadRequestResponse
+
+func (response JoinGame400JSONResponse) VisitJoinGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type JoinGame401JSONResponse UnauthorizedResponse
+
+func (response JoinGame401JSONResponse) VisitJoinGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type JoinGame403JSONResponse ForbiddenResponse
 
 func (response JoinGame403JSONResponse) VisitJoinGameResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type JoinGame404JSONResponse GameNotFoundResponse
+
+func (response JoinGame404JSONResponse) VisitJoinGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -814,7 +1120,16 @@ func (response GetPlayOrder200JSONResponse) VisitGetPlayOrderResponse(w http.Res
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetPlayOrder403JSONResponse ErrorResponse
+type GetPlayOrder400JSONResponse BadRequestResponse
+
+func (response GetPlayOrder400JSONResponse) VisitGetPlayOrderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPlayOrder403JSONResponse ForbiddenResponse
 
 func (response GetPlayOrder403JSONResponse) VisitGetPlayOrderResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -823,7 +1138,7 @@ func (response GetPlayOrder403JSONResponse) VisitGetPlayOrderResponse(w http.Res
 	return json.NewEncoder(w).Encode(response)
 }
 
-type GetPlayOrder404JSONResponse ErrorResponse
+type GetPlayOrder404JSONResponse GameNotFoundResponse
 
 func (response GetPlayOrder404JSONResponse) VisitGetPlayOrderResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
@@ -850,11 +1165,38 @@ func (response SetPlayOrder200JSONResponse) VisitSetPlayOrderResponse(w http.Res
 	return json.NewEncoder(w).Encode(response)
 }
 
-type SetPlayOrder403JSONResponse ErrorResponse
+type SetPlayOrder400JSONResponse BadRequestResponse
+
+func (response SetPlayOrder400JSONResponse) VisitSetPlayOrderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetPlayOrder401JSONResponse UnauthorizedResponse
+
+func (response SetPlayOrder401JSONResponse) VisitSetPlayOrderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetPlayOrder403JSONResponse ForbiddenResponse
 
 func (response SetPlayOrder403JSONResponse) VisitSetPlayOrderResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetPlayOrder404JSONResponse GameNotFoundResponse
+
+func (response SetPlayOrder404JSONResponse) VisitSetPlayOrderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
 
 	return json.NewEncoder(w).Encode(response)
 }
@@ -1362,36 +1704,40 @@ func (sh *strictHandler) SetPlayOrder(ctx *gin.Context, gameId string) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
