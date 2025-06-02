@@ -5,7 +5,6 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"github.com/max0l/nobody-is-perfect-go/game"
 )
 
@@ -92,15 +91,10 @@ func NewServer() *StrictServer {
 func (s *StrictServer) CreateUser(ctx context.Context, request CreateUserRequestObject) (CreateUserResponseObject, error) {
 	user, err := s.gameService.CreateUser(request.Body.Username)
 
-	usertoken := user.GetUserToken().String()
-	useruuid := user.GetUserID().String()
-
-	fmt.Printf("Created user with token %s and UUID %s", usertoken, useruuid)
-
 	if err == nil {
 		return CreateUser201JSONResponse{
-			UserToken: &usertoken,
-			UserUUID:  &useruuid,
+			UserToken: user.GetUserToken(),
+			UserUUID:  user.GetUserID(),
 		}, err
 	}
 	return nil, err

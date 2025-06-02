@@ -12,16 +12,16 @@ type User struct {
 	userID   uuid.UUID
 }
 
-func (u *User) GetUserToken() uuid.UUID {
-	return u.token
+func (u *User) GetUserToken() *uuid.UUID {
+	return &u.token
 }
 
-func (u *User) GetUserUsername() string {
-	return u.username
+func (u *User) GetUserUsername() *string {
+	return &u.username
 }
 
-func (u *User) GetUserID() uuid.UUID {
-	return u.userID
+func (u *User) GetUserID() *uuid.UUID {
+	return &u.userID
 }
 
 type Answer struct {
@@ -45,6 +45,7 @@ type Service struct {
 
 func (s *Service) CreateUser(username *string) (*User, error) {
 	s.Lock.Lock()
+	defer s.Lock.Unlock()
 	if username == nil || *username == "" {
 		return nil, errors.New("no Username") // Handle error for empty username
 	}
