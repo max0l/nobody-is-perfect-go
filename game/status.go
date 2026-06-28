@@ -24,3 +24,28 @@ func (s GameStatus) String() string {
 func (s GameStatus) IsValid() bool {
 	return s >= GameStatusCreated && s <= GameStatusFinished
 }
+
+type RoundStatus int
+
+const (
+	RoundStatusAnswering RoundStatus = iota
+	RoundStatusVoting
+	RoundStatusRevealed
+)
+
+func (s RoundStatus) String() string {
+	switch s {
+	case RoundStatusAnswering:
+		return "answering"
+	case RoundStatusVoting:
+		return "voting"
+	case RoundStatusRevealed:
+		return "revealed"
+	default:
+		return "unknown"
+	}
+}
+
+func (s RoundStatus) IsValid() bool {
+	return s >= RoundStatusAnswering && s <= RoundStatusRevealed
+}

@@ -13,9 +13,12 @@ type Answer struct {
 }
 
 type round struct {
+	status        RoundStatus
+	roundMasterID uuid.UUID
 	answersByUser map[uuid.UUID]*Answer
 	answersByID   map[uuid.UUID]*Answer
 	scrambled     []uuid.UUID
+	votesByUser   map[uuid.UUID]uuid.UUID
 }
 
 type Games struct {
@@ -44,7 +47,7 @@ func (s *Service) CreateGame(gameCreator uuid.UUID) (string, error) {
 		gameID:       gameID,
 		gameOwner:    user.userID,
 		gameStatus:   GameStatusCreated,
-		currentRound: 1,
+		currentRound: 0,
 		players:      make(map[uuid.UUID]*User),
 		rounds:       make(map[int]*round),
 		placeByUser:  make(map[uuid.UUID]int),
@@ -58,24 +61,37 @@ func (s *Service) CreateGame(gameCreator uuid.UUID) (string, error) {
 }
 
 func (g *Games) currentReaderID() uuid.UUID {
-	if len(g.usersByPlace) == 0 {
+	state := g.currentRoundState()
+	if state.roundMasterID == uuid.Nil {
 		return uuid.Nil
 	}
 
-	return g.usersByPlace[(g.currentRound-1)%len(g.usersByPlace)]
+	return state.roundMasterID
 }
 
 func (g *Games) currentRoundState() *round {
 	state := g.rounds[g.currentRound]
 	if state == nil {
-		state = &round{
-			answersByUser: make(map[uuid.UUID]*Answer),
-			answersByID:   make(map[uuid.UUID]*Answer),
-		}
+		state = newRound(uuid.Nil)
 		g.rounds[g.currentRound] = state
 	}
 
 	return state
+}
+
+func (g *Games) startNextRound() {
+	g.currentRound++
+	g.rounds[g.currentRound] = newRound(g.usersByPlace[(g.currentRound-1)%len(g.usersByPlace)])
+}
+
+func newRound(roundMasterID uuid.UUID) *round {
+	return &round{
+		status:        RoundStatusAnswering,
+		roundMasterID: roundMasterID,
+		answersByUser: make(map[uuid.UUID]*Answer),
+		answersByID:   make(map[uuid.UUID]*Answer),
+		votesByUser:   make(map[uuid.UUID]uuid.UUID),
+	}
 }
 
 func (s *Service) generateNewGame() string {

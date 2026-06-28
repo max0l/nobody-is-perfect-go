@@ -22,6 +22,8 @@ var (
 	ErrForbidden        = errors.New("forbidden")
 	ErrInvalidPlayOrder = errors.New("invalid play order")
 	ErrAnswerRequired   = errors.New("answer is required")
+	ErrInvalidRound     = errors.New("invalid round state")
+	ErrAnswerNotFound   = errors.New("answer does not exist")
 )
 
 type Service struct {

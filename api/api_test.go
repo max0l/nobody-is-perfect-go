@@ -185,6 +185,11 @@ func TestAnswerEndpointShowsAuthorsOnlyToCurrentReader(t *testing.T) {
 	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
 	ownerAnswer := "owner answer"
 	playerAnswer := "player answer"
+	if response, err := server.StartGame(ownerCtx, StartGameRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("StartGame returned error: %v", err)
+	} else if _, ok := response.(StartGame200JSONResponse); !ok {
+		t.Fatalf("expected StartGame200JSONResponse, got %T", response)
+	}
 
 	if response, err := server.SendAnswer(ownerCtx, SendAnswerRequestObject{GameId: gameID, Body: &SendAnswerJSONRequestBody{Answer: &ownerAnswer}}); err != nil {
 		t.Fatalf("SendAnswer owner returned error: %v", err)
@@ -211,6 +216,19 @@ func TestAnswerEndpointShowsAuthorsOnlyToCurrentReader(t *testing.T) {
 		}
 	}
 
+	waitResponse, err := server.GetAnswers(playerCtx, GetAnswersRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetAnswers waiting player returned error: %v", err)
+	}
+	if _, ok := waitResponse.(GetAnswers403JSONResponse); !ok {
+		t.Fatalf("expected GetAnswers403JSONResponse while answering, got %T", waitResponse)
+	}
+	if response, err := server.StartVoting(ownerCtx, StartVotingRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("StartVoting returned error: %v", err)
+	} else if _, ok := response.(StartVoting200JSONResponse); !ok {
+		t.Fatalf("expected StartVoting200JSONResponse, got %T", response)
+	}
+
 	playerResponse, err := server.GetAnswers(playerCtx, GetAnswersRequestObject{GameId: gameID})
 	if err != nil {
 		t.Fatalf("GetAnswers player returned error: %v", err)
@@ -220,6 +238,84 @@ func TestAnswerEndpointShowsAuthorsOnlyToCurrentReader(t *testing.T) {
 		if answer.UserUUID != nil || answer.Username != nil {
 			t.Fatalf("expected player answer to hide author fields: %+v", answer)
 		}
+	}
+}
+
+func TestVotingRevealAndStatusEndpoints(t *testing.T) {
+	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+	if response, err := server.StartGame(ownerCtx, StartGameRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("StartGame returned error: %v", err)
+	} else if _, ok := response.(StartGame200JSONResponse); !ok {
+		t.Fatalf("expected StartGame200JSONResponse, got %T", response)
+	}
+	ownerAnswer := "owner answer"
+	playerAnswer := "player answer"
+	if _, err := server.SendAnswer(ownerCtx, SendAnswerRequestObject{GameId: gameID, Body: &SendAnswerJSONRequestBody{Answer: &ownerAnswer}}); err != nil {
+		t.Fatalf("SendAnswer owner returned error: %v", err)
+	}
+	if _, err := server.SendAnswer(playerCtx, SendAnswerRequestObject{GameId: gameID, Body: &SendAnswerJSONRequestBody{Answer: &playerAnswer}}); err != nil {
+		t.Fatalf("SendAnswer player returned error: %v", err)
+	}
+	statusResponse, err := server.GetGameStatus(playerCtx, GetGameStatusRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetGameStatus returned error: %v", err)
+	}
+	status := statusResponse.(GetGameStatus200JSONResponse)
+	if status.Round == nil || *status.Round != 1 || status.RoundStatus == nil || *status.RoundStatus != "answering" {
+		t.Fatalf("unexpected status response: %+v", status)
+	}
+	if status.RoundMasterUUID == nil || *status.RoundMasterUUID != *owner.UserUUID {
+		t.Fatalf("expected owner as round master, got %+v", status.RoundMasterUUID)
+	}
+
+	if response, err := server.StartVoting(ownerCtx, StartVotingRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("StartVoting returned error: %v", err)
+	} else if _, ok := response.(StartVoting200JSONResponse); !ok {
+		t.Fatalf("expected StartVoting200JSONResponse, got %T", response)
+	}
+	answersResponse, err := server.GetAnswers(playerCtx, GetAnswersRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetAnswers returned error: %v", err)
+	}
+	answers := answersResponse.(GetAnswers200JSONResponse)
+	if answers.Answers == nil || len(*answers.Answers) != 2 {
+		t.Fatalf("expected 2 answers, got %+v", answers.Answers)
+	}
+	masterVoteResponse, err := server.VoteForAnswer(ownerCtx, VoteForAnswerRequestObject{GameId: gameID, Body: &VoteForAnswerJSONRequestBody{AnswerUUID: (*answers.Answers)[0].AnswerUUID}})
+	if err != nil {
+		t.Fatalf("VoteForAnswer master returned error: %v", err)
+	}
+	if _, ok := masterVoteResponse.(VoteForAnswer403JSONResponse); !ok {
+		t.Fatalf("expected VoteForAnswer403JSONResponse, got %T", masterVoteResponse)
+	}
+	if response, err := server.VoteForAnswer(playerCtx, VoteForAnswerRequestObject{GameId: gameID, Body: &VoteForAnswerJSONRequestBody{AnswerUUID: (*answers.Answers)[0].AnswerUUID}}); err != nil {
+		t.Fatalf("VoteForAnswer returned error: %v", err)
+	} else if _, ok := response.(VoteForAnswer200JSONResponse); !ok {
+		t.Fatalf("expected VoteForAnswer200JSONResponse, got %T", response)
+	}
+	triggerResponse, err := server.TriggerReveal(ownerCtx, TriggerRevealRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("TriggerReveal returned error: %v", err)
+	}
+	revealed := triggerResponse.(TriggerReveal200JSONResponse)
+	if revealed.Answers == nil || len(*revealed.Answers) != 2 {
+		t.Fatalf("expected 2 revealed answers, got %+v", revealed.Answers)
+	}
+	voteCount := 0
+	for _, answer := range *revealed.Answers {
+		if answer.Votes != nil {
+			voteCount += len(*answer.Votes)
+		}
+	}
+	if voteCount != 1 {
+		t.Fatalf("expected one revealed vote, got %d", voteCount)
+	}
+	if response, err := server.NextRound(ownerCtx, NextRoundRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("NextRound returned error: %v", err)
+	} else if _, ok := response.(NextRound200JSONResponse); !ok {
+		t.Fatalf("expected NextRound200JSONResponse, got %T", response)
 	}
 }
 

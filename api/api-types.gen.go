@@ -34,6 +34,9 @@ type AnswerRequest struct {
 type AnswerWithVotes struct {
 	Answer     *string     `json:"answer,omitempty"`
 	AnswerUUID *UUID       `json:"answerUUID,omitempty"`
+	Label      *string     `json:"label,omitempty"`
+	UserUUID   *UUID       `json:"userUUID,omitempty"`
+	Username   *string     `json:"username,omitempty"`
 	Votes      *[]VoteUser `json:"votes,omitempty"`
 }
 
@@ -80,9 +83,13 @@ type GameStartedResponse struct {
 // GameStatusResponse defines model for GameStatusResponse.
 type GameStatusResponse struct {
 	GameMasterUUID *UUID `json:"gameMasterUUID,omitempty"`
+	PlayerCount    *int  `json:"playerCount,omitempty"`
 
 	// ReceivedAnswers Get the number of answers received from the players
-	ReceivedAnswers *int `json:"receivedAnswers,omitempty"`
+	ReceivedAnswers *int    `json:"receivedAnswers,omitempty"`
+	Round           *int    `json:"round,omitempty"`
+	RoundMasterUUID *UUID   `json:"roundMasterUUID,omitempty"`
+	RoundStatus     *string `json:"roundStatus,omitempty"`
 
 	// Status Status of the game
 	Status *int    `json:"status,omitempty"`
@@ -178,6 +185,11 @@ type VoteRequest struct {
 type VoteUser struct {
 	UserUUID *UUID   `json:"userUUID,omitempty"`
 	Username *string `json:"username,omitempty"`
+}
+
+// VotingStartedResponse defines model for VotingStartedResponse.
+type VotingStartedResponse struct {
+	Message *string `json:"message,omitempty"`
 }
 
 // CreateUserJSONRequestBody defines body for CreateUser for application/json ContentType.

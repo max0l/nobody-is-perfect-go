@@ -184,6 +184,13 @@ components:
           type: string
           example: "Vote recorded successfully"
 
+    VotingStartedResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Voting started successfully"
+
     GameStatusResponse:
       type: object
       properties:
@@ -201,6 +208,17 @@ components:
           type: integer
           example: 3
           description: Get the number of answers received from the players
+        playerCount:
+          type: integer
+          example: 4
+        round:
+          type: integer
+          example: 1
+        roundStatus:
+          type: string
+          example: "answering"
+        roundMasterUUID:
+          $ref: "#/components/schemas/UUID"
 
     AnswerRequest:
       type: object
@@ -259,11 +277,19 @@ components:
     AnswerWithVotes:
       type: object
       properties:
+        label:
+          type: string
+          example: "A"
         answerUUID:
           $ref: "#/components/schemas/UUID"
         answer:
           type: string
-          example: "A: This is my answer to the question"
+          example: "This is my answer to the question"
+        userUUID:
+          $ref: "#/components/schemas/UUID"
+        username:
+          type: string
+          example: "john_doe"
         votes:
           type: array
           items:
@@ -739,6 +765,52 @@ paths:
               schema:
                 $ref: "#/components/schemas/GameNotFoundResponse"
 
+  /api/game/{gameId}/startVoting:
+    post:
+      summary: Start voting for the current round
+      description: Current round master or game creator starts the voting phase manually
+      operationId: startVoting
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "chug.value.funds"
+      responses:
+        '200':
+          description: Voting started successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VotingStartedResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
+
   /api/game/{gameId}/vote:
     post:
       summary: Vote for an answer in the game
@@ -792,9 +864,54 @@ paths:
                 $ref: "#/components/schemas/GameNotFoundResponse"
 
   /api/game/{gameId}/reveal:
+    post:
+      summary: Reveal votes for the current round
+      description: Current round master or game creator manually reveals all votes
+      operationId: triggerReveal
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "chug.value.funds"
+      responses:
+        '200':
+          description: Answers and votes revealed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevealVotesResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
+
     get:
       summary: Reveal the answers and votes in the game
-      description: Will reveal the answers and votes in the game
+      description: Will return the revealed answers and votes in the game
       operationId: revealVotes
       security:
         - sessionCookie: []
