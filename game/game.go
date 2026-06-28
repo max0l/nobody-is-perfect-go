@@ -31,7 +31,8 @@ func (s *Service) CreateGame(gameCreator uuid.UUID) (string, error) {
 		return "", ErrUserNotFound
 	}
 
-	gameID := getThreeWords()
+	gameID := s.generateNewGame()
+
 	newGame := &Games{
 		gameID:     gameID,
 		gameOwner:  gameCreator,
@@ -44,6 +45,18 @@ func (s *Service) CreateGame(gameCreator uuid.UUID) (string, error) {
 	newGame.players[gameCreator] = s.users[gameCreator]
 
 	return gameID, nil
+}
+
+func (s *Service) generateNewGame() string {
+	gameID := getThreeWords()
+	for gameAlreadyExists := true; gameAlreadyExists; {
+		if s.games[gameID] != nil {
+			gameID = getThreeWords()
+			continue
+		}
+		gameAlreadyExists = false
+	}
+	return gameID
 }
 
 // getThreeWords is chosen 3 words from a file randomly.
