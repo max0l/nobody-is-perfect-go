@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	BearerAuthScopes = "BearerAuth.Scopes"
+	SessionCookieScopes = "sessionCookie.Scopes"
 )
 
 // Answer defines model for Answer.

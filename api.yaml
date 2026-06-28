@@ -7,13 +7,16 @@ info:
   title: Nobody is Perfect - Go
   description: |-
     Simple Web application to make the sharing of written text easier.
-
 components:
   securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: UUID
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session
+#    BearerAuth:
+#      type: http
+#      scheme: bearer
+#      bearerFormat: UUID
 
   schemas:
     UUID:
@@ -317,7 +320,7 @@ paths:
       description: Will create a new game for the user with a UUID
       operationId: createGame
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       responses:
         '201':
           description: Game created
@@ -350,7 +353,7 @@ paths:
       description: Will allow a user to join an existing game
       operationId: joinGame
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -396,7 +399,7 @@ paths:
       description: Will return the play order of the users for the game
       operationId: getPlayOrder
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -435,7 +438,7 @@ paths:
       description: Will set the play order for the game
       operationId: setPlayOrder
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -487,7 +490,7 @@ paths:
       description: Will start the game for the users
       operationId: startGame
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -533,7 +536,7 @@ paths:
       description: Will return the status of the game including users and game master
       operationId: getGameStatus
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -579,7 +582,7 @@ paths:
       description: Will allow a user to send an answer for the game
       operationId: sendAnswer
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -630,7 +633,7 @@ paths:
       description: Will return the answers for the game only if you are game master
       operationId: getAnswers
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -676,7 +679,7 @@ paths:
       description: Will allow the game master to select valid answers for the game
       operationId: selectValidAnswers
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -728,7 +731,7 @@ paths:
       description: Will allow a user to vote for an answer in the game
       operationId: voteForAnswer
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -780,7 +783,7 @@ paths:
       description: Will reveal the answers and votes in the game
       operationId: revealVotes
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -826,7 +829,7 @@ paths:
       description: Will allow the game to move to the next round
       operationId: nextRound
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -872,7 +875,7 @@ paths:
       description: Will finish the game and clean up resources
       operationId: finishGame
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path

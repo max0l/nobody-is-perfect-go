@@ -1,28 +1,14 @@
 package game
 
 import (
-	"errors"
+	"bufio"
+	"fmt"
+	"math/rand"
+	"os"
+	"time"
+
 	"github.com/google/uuid"
-	"sync"
 )
-
-type User struct {
-	token    uuid.UUID
-	username string
-	userID   uuid.UUID
-}
-
-func (u *User) GetUserToken() *uuid.UUID {
-	return &u.token
-}
-
-func (u *User) GetUserUsername() *string {
-	return &u.username
-}
-
-func (u *User) GetUserID() *uuid.UUID {
-	return &u.userID
-}
 
 type Answer struct {
 	answer     string
@@ -37,36 +23,62 @@ type Games struct {
 	answers    map[uuid.UUID]*Answer
 }
 
-type Service struct {
-	users map[uuid.UUID]*User
-	games map[string]*Games
-	Lock  sync.Mutex
-}
-
-func (s *Service) CreateUser(username *string) (*User, error) {
+func (s *Service) CreateGame(gameCreator uuid.UUID) (string, error) {
 	s.Lock.Lock()
 	defer s.Lock.Unlock()
-	if username == nil || *username == "" {
-		return nil, errors.New("no Username") // Handle error for empty username
+
+	if _, exists := s.users[gameCreator]; !exists {
+		return "", ErrUserNotFound
 	}
 
-	userID := uuid.New()
-	token := uuid.New()
-
-	user := &User{
-		token:    token,
-		username: *username,
-		userID:   userID,
+	gameID := getThreeWords()
+	newGame := &Games{
+		gameID:     gameID,
+		gameOwner:  gameCreator,
+		gameStatus: "created",
+		players:    make(map[uuid.UUID]*User),
+		answers:    make(map[uuid.UUID]*Answer),
 	}
 
-	s.users[token] = user
+	s.games[gameID] = newGame
+	newGame.players[gameCreator] = s.users[gameCreator]
 
-	return user, nil
+	return gameID, nil
 }
 
-func NewService() *Service {
-	return &Service{
-		users: make(map[uuid.UUID]*User),
-		games: make(map[string]*Games),
+// getThreeWords is chosen 3 words from a file randomly.
+func getThreeWords() string {
+	file, err := os.Open("./../words.txt")
+	if err != nil {
+		panic("Failed to read words file: " + err.Error())
 	}
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			panic("Failed to close words file: " + err.Error())
+		}
+	}(file)
+
+	var words []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		words = append(words, scanner.Text())
+	}
+
+	if err := scanner.Err(); err != nil {
+		panic("Error reading words file: " + err.Error())
+	}
+
+	if len(words) != 3 {
+		panic("Words file must contain at least 3 words")
+	}
+
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	selected := make([]string, 3)
+	for i := 0; i < 3; i++ {
+		selected[i] = words[r.Intn(len(words))]
+	}
+
+	return fmt.Sprintf("%s.%s.%s", selected[0], selected[1], selected[2])
+
 }

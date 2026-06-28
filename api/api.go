@@ -5,7 +5,11 @@ package api
 
 import (
 	"context"
+	"errors"
+
+	"github.com/google/uuid"
 	"github.com/max0l/nobody-is-perfect-go/game"
+	"github.com/rs/zerolog/log"
 )
 
 type StrictServer struct {
@@ -13,8 +17,39 @@ type StrictServer struct {
 }
 
 func (s *StrictServer) CreateGame(ctx context.Context, request CreateGameRequestObject) (CreateGameResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
+
+	log.Info().Interface("request", request).Interface("context", ctx).Msg("create game request")
+
+	token, ok := ctx.Value(SessionCookieValueKey).(string)
+	if !ok || token == "" {
+		msg := UnauthorizedError
+		return CreateGame401JSONResponse{Error: &msg}, nil
+	}
+	log.Info().Str("token", token).Msg("create game for user")
+
+	userUuid, err := uuid.Parse(token)
+
+	if err != nil {
+		log.Error().Err(err).Msg("parse user UUID")
+		msg := UnauthorizedError
+		return CreateGame401JSONResponse{Error: &msg}, nil
+	}
+
+	gameId, err := s.gameService.CreateGame(userUuid)
+
+	if err != nil {
+		log.Error().Err(err).Msg("create game")
+		if errors.Is(err, game.ErrUserNotFound) {
+			msg := UnauthorizedError
+			return CreateGame401JSONResponse{Error: &msg}, nil
+		}
+
+		msg := BadRequestError
+		return CreateGame400JSONResponse{Error: &msg}, nil
+	}
+	return CreateGame201JSONResponse{
+		GameId: &gameId,
+	}, nil
 }
 
 func (s *StrictServer) GetAnswers(ctx context.Context, request GetAnswersRequestObject) (GetAnswersResponseObject, error) {
@@ -97,5 +132,13 @@ func (s *StrictServer) CreateUser(ctx context.Context, request CreateUserRequest
 			UserUUID:  user.GetUserID(),
 		}, err
 	}
-	return nil, err
+
+	log.Error().Err(err).Msg("create user")
+	if errors.Is(err, game.ErrUsernameRequired) {
+		msg := BadRequestError
+		return CreateUser400JSONResponse{Error: &msg}, nil
+	}
+
+	msg := ForbiddenError
+	return CreateUser403JSONResponse{Error: &msg}, nil
 }
