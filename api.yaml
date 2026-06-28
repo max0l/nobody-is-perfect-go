@@ -57,11 +57,8 @@ components:
           example: "Game not found, please check the game ID"
 
     HealthStatus:
-      type: object
-      properties:
-        status:
-          type: string
-          example: "OK"
+      type: string
+      example: "OK"
 
     User:
       type: object

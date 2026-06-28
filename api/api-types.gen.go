@@ -97,9 +97,7 @@ type GameStatusResponse struct {
 }
 
 // HealthStatus defines model for HealthStatus.
-type HealthStatus struct {
-	Status *string `json:"status,omitempty"`
-}
+type HealthStatus = string
 
 // JoinGameResponse defines model for JoinGameResponse.
 type JoinGameResponse struct {

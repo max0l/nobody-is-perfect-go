@@ -345,8 +345,7 @@ func (s *StrictServer) PingGame(ctx context.Context, request PingGameRequestObje
 }
 
 func (s *StrictServer) HealthCheck(ctx context.Context, request HealthCheckRequestObject) (HealthCheckResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
+	return HealthCheck200JSONResponse("ok"), nil
 }
 
 func (s *StrictServer) JoinGame(ctx context.Context, request JoinGameRequestObject) (JoinGameResponseObject, error) {
