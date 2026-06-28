@@ -1,0 +1,57 @@
+version: '3'
+
+tasks:
+  fmt:
+    desc: Format all Go files
+    cmds:
+      - |
+        files="$(find . -name '*.go' -not -path './.git/*')"
+        if [ -n "$files" ]; then
+          gofmt -w $files
+        fi
+
+  fmt-check:
+    desc: Check Go formatting
+    cmds:
+      - |
+        files="$(find . -name '*.go' -not -path './.git/*')"
+        if [ -n "$files" ]; then
+          unformatted="$(gofmt -l $files)"
+          if [ -n "$unformatted" ]; then
+            printf 'These files need gofmt:\n%s\n' "$unformatted"
+            exit 1
+          fi
+        fi
+
+  generate:
+    desc: Regenerate OpenAPI code
+    cmds:
+      - go generate ./api
+
+  generate-check:
+    desc: Check generated OpenAPI files are current
+    cmds:
+      - go generate ./api
+      - git diff --exit-code -- api/api-server.gen.go api/api-types.gen.go
+
+  test:
+    desc: Run all Go tests
+    cmds:
+      - go test ./...
+
+  verify:
+    desc: Run pre-commit quality checks
+    cmds:
+      - task: fmt-check
+      - task: generate-check
+      - task: test
+
+  install-hooks:
+    desc: Configure Git to use tracked hooks
+    cmds:
+      - git config core.hooksPath .githooks
+
+  build:
+    desc: Build the application
+    cmds:
+      - go build ./...

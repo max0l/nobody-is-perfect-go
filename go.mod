@@ -1,6 +1,6 @@
 module github.com/max0l/nobody-is-perfect-go
 
-go 1.24.3
+go 1.26.1
 
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 
