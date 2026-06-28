@@ -95,7 +95,7 @@ func TestCreateGameStoresCreatedGame(t *testing.T) {
 	if createdGame.gameOwner != userID {
 		t.Fatalf("expected game owner %s, got %s", userID, createdGame.gameOwner)
 	}
-	if createdGame.gameStatus != "created" {
+	if createdGame.gameStatus != GameStatusCreated {
 		t.Fatalf("expected game status created, got %q", createdGame.gameStatus)
 	}
 	if createdGame.players[userID] != user {

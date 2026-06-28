@@ -2,11 +2,6 @@ package game
 
 import "github.com/google/uuid"
 
-type playerOrder struct {
-	usersByPlace []uuid.UUID
-	placeByUser  map[uuid.UUID]int
-}
-
 type PlayOrderEntry struct {
 	Place    int
 	UserUUID uuid.UUID

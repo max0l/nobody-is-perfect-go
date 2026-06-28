@@ -12,12 +12,13 @@ type Answer struct {
 }
 
 type Games struct {
-	gameID     string
-	gameOwner  uuid.UUID
-	gameStatus string
-	players    map[uuid.UUID]*User
-	answers    map[uuid.UUID]*Answer
-	playerOrder
+	gameID       string
+	gameOwner    uuid.UUID
+	gameStatus   GameStatus
+	players      map[uuid.UUID]*User
+	answers      map[uuid.UUID]*Answer
+	usersByPlace []uuid.UUID
+	placeByUser  map[uuid.UUID]int
 }
 
 func (s *Service) CreateGame(gameCreator uuid.UUID) (string, error) {
@@ -32,14 +33,12 @@ func (s *Service) CreateGame(gameCreator uuid.UUID) (string, error) {
 	gameID := s.generateNewGame()
 
 	newGame := &Games{
-		gameID:     gameID,
-		gameOwner:  user.userID,
-		gameStatus: "created",
-		players:    make(map[uuid.UUID]*User),
-		answers:    make(map[uuid.UUID]*Answer),
-		playerOrder: playerOrder{
-			placeByUser: make(map[uuid.UUID]int),
-		},
+		gameID:      gameID,
+		gameOwner:   user.userID,
+		gameStatus:  GameStatusCreated,
+		players:     make(map[uuid.UUID]*User),
+		answers:     make(map[uuid.UUID]*Answer),
+		placeByUser: make(map[uuid.UUID]int),
 	}
 
 	s.games[gameID] = newGame
