@@ -1129,6 +1129,15 @@ func (response GetPlayOrder400JSONResponse) VisitGetPlayOrderResponse(w http.Res
 	return json.NewEncoder(w).Encode(response)
 }
 
+type GetPlayOrder401JSONResponse UnauthorizedResponse
+
+func (response GetPlayOrder401JSONResponse) VisitGetPlayOrderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
 type GetPlayOrder403JSONResponse ForbiddenResponse
 
 func (response GetPlayOrder403JSONResponse) VisitGetPlayOrderResponse(w http.ResponseWriter) error {
@@ -1736,9 +1745,9 @@ var swaggerSpec = []string{
 	"OL2BmD23pUWz+7ECQbmP36FaRxv8AAADADzNPal0GJsbDHRk0KksUNyg6inm1C+uTdryAR0tX3BxfPeo",
 	"5abP576ecLW6uq4lmvtaB/AZwKdf8Pnajgs5AIXmFVYp/qjihX2k9S4E/w4/oQtV3oI5hPH5w04zmp1g",
 	"XxkWm7nllOVoeiCQ6rlaWPBApdKe4MTP7dOyo4ubam/mmnojd9/EDdA1QFe/0PW78cQdnDJvASu+3Slf",
-	"Sop3hFn8ZZOk1raOy9Jrs6Nz9PrjUIcGS88v87bSl+7pg5cdmp3I7i6y8Vo6qmSW6JRW2tM29RL86yka",
-	"puqvVJ85F3E+uW538Nr76uFEH070vluj2gFiYxcUqy0GVKn/wX0SoQBWEPEkBqaQHYs9nIoIz3CoVDKb",
-	"TCI9LuRSzV5PX0/x5nrz/wAAAP//O3JO1GxKAAA=",
+	"Sop3hFn8ZZOk1raOy9Jrs6Nz9PrjUIcGS88v87bSwdMHT+8/Q5Ld3XTjtXR1ySzZKq20p3XrJfj4UzRt",
+	"1V/KPnM+5Hz23Q4ytTfeA9YMWNN3e1Y7QGzsgmK1xYAq9T+4TyIUwAoinsTAFLJjsYdTEeEZDpVKZpNJ",
+	"pMeFXKrZ6+nrKd5cb/4fAAD//5/4coTwSgAA",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

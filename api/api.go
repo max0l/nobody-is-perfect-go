@@ -20,22 +20,14 @@ func (s *StrictServer) CreateGame(ctx context.Context, request CreateGameRequest
 
 	log.Info().Interface("request", request).Interface("context", ctx).Msg("create game request")
 
-	token, ok := ctx.Value(SessionCookieValueKey).(string)
-	if !ok || token == "" {
+	token, ok := sessionToken(ctx)
+	if !ok {
 		msg := UnauthorizedError
 		return CreateGame401JSONResponse{Error: &msg}, nil
 	}
-	log.Info().Str("token", token).Msg("create game for user")
+	log.Info().Str("token", token.String()).Msg("create game for user")
 
-	userUuid, err := uuid.Parse(token)
-
-	if err != nil {
-		log.Error().Err(err).Msg("parse user UUID")
-		msg := UnauthorizedError
-		return CreateGame401JSONResponse{Error: &msg}, nil
-	}
-
-	gameId, err := s.gameService.CreateGame(userUuid)
+	gameId, err := s.gameService.CreateGame(token)
 
 	if err != nil {
 		log.Error().Err(err).Msg("create game")
@@ -103,18 +95,115 @@ func (s *StrictServer) HealthCheck(ctx context.Context, request HealthCheckReque
 }
 
 func (s *StrictServer) JoinGame(ctx context.Context, request JoinGameRequestObject) (JoinGameResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
+	token, ok := sessionToken(ctx)
+	if !ok {
+		msg := UnauthorizedError
+		return JoinGame401JSONResponse{Error: &msg}, nil
+	}
+
+	if err := s.gameService.JoinGame(request.GameId, token); err != nil {
+		if errors.Is(err, game.ErrGameNotFound) {
+			msg := GameNotFoundError
+			return JoinGame404JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrUserNotFound) {
+			msg := UnauthorizedError
+			return JoinGame401JSONResponse{Error: &msg}, nil
+		}
+
+		msg := BadRequestError
+		return JoinGame400JSONResponse{Error: &msg}, nil
+	}
+
+	msg := "user joined game"
+	return JoinGame200JSONResponse{Message: &msg}, nil
 }
 
 func (s *StrictServer) GetPlayOrder(ctx context.Context, request GetPlayOrderRequestObject) (GetPlayOrderResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
+	token, ok := sessionToken(ctx)
+	if !ok {
+		msg := UnauthorizedError
+		return GetPlayOrder401JSONResponse{Error: &msg}, nil
+	}
+
+	playOrder, err := s.gameService.GetPlayOrder(request.GameId, token)
+	if err != nil {
+		if errors.Is(err, game.ErrGameNotFound) {
+			msg := GameNotFoundError
+			return GetPlayOrder404JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrUserNotFound) {
+			msg := UnauthorizedError
+			return GetPlayOrder401JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrForbidden) {
+			msg := ForbiddenError
+			return GetPlayOrder403JSONResponse{Error: &msg}, nil
+		}
+
+		msg := BadRequestError
+		return GetPlayOrder400JSONResponse{Error: &msg}, nil
+	}
+
+	response := make([]PlayOrderUser, 0, len(playOrder))
+	for _, entry := range playOrder {
+		place := entry.Place
+		userID := entry.UserUUID
+		username := entry.Username
+		response = append(response, PlayOrderUser{
+			Place:    &place,
+			UserUUID: &userID,
+			Username: &username,
+		})
+	}
+
+	return GetPlayOrder200JSONResponse{PlayOrder: &response}, nil
 }
 
 func (s *StrictServer) SetPlayOrder(ctx context.Context, request SetPlayOrderRequestObject) (SetPlayOrderResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
+	token, ok := sessionToken(ctx)
+	if !ok {
+		msg := UnauthorizedError
+		return SetPlayOrder401JSONResponse{Error: &msg}, nil
+	}
+	if request.Body == nil || request.Body.PlayOrder == nil {
+		msg := BadRequestError
+		return SetPlayOrder400JSONResponse{Error: &msg}, nil
+	}
+
+	entries := make([]game.SetPlayOrderEntry, 0, len(*request.Body.PlayOrder))
+	for _, entry := range *request.Body.PlayOrder {
+		if entry.Place == nil || entry.UserUUID == nil {
+			msg := BadRequestError
+			return SetPlayOrder400JSONResponse{Error: &msg}, nil
+		}
+
+		entries = append(entries, game.SetPlayOrderEntry{
+			Place:    *entry.Place,
+			UserUUID: *entry.UserUUID,
+		})
+	}
+
+	if err := s.gameService.SetPlayOrder(request.GameId, token, entries); err != nil {
+		if errors.Is(err, game.ErrGameNotFound) {
+			msg := GameNotFoundError
+			return SetPlayOrder404JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrUserNotFound) {
+			msg := UnauthorizedError
+			return SetPlayOrder401JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrForbidden) {
+			msg := ForbiddenError
+			return SetPlayOrder403JSONResponse{Error: &msg}, nil
+		}
+
+		msg := BadRequestError
+		return SetPlayOrder400JSONResponse{Error: &msg}, nil
+	}
+
+	msg := "play order set"
+	return SetPlayOrder200JSONResponse{Message: &msg}, nil
 }
 
 func NewServer() *StrictServer {
@@ -141,4 +230,19 @@ func (s *StrictServer) CreateUser(ctx context.Context, request CreateUserRequest
 
 	msg := ForbiddenError
 	return CreateUser403JSONResponse{Error: &msg}, nil
+}
+
+func sessionToken(ctx context.Context) (uuid.UUID, bool) {
+	token, ok := ctx.Value(SessionCookieValueKey).(string)
+	if !ok || token == "" {
+		return uuid.Nil, false
+	}
+
+	parsed, err := uuid.Parse(token)
+	if err != nil {
+		log.Error().Err(err).Msg("parse session token")
+		return uuid.Nil, false
+	}
+
+	return parsed, true
 }

@@ -18,14 +18,18 @@ const minimumWordCount = 1000
 var (
 	ErrUsernameRequired = errors.New("username is required")
 	ErrUserNotFound     = errors.New("user does not exist")
+	ErrGameNotFound     = errors.New("game does not exist")
+	ErrForbidden        = errors.New("forbidden")
+	ErrInvalidPlayOrder = errors.New("invalid play order")
 )
 
 type Service struct {
-	users  map[uuid.UUID]*User
-	games  map[string]*Games
-	words  []string
-	random *rand.Rand
-	Lock   sync.Mutex
+	users     map[uuid.UUID]*User
+	usersByID map[uuid.UUID]*User
+	games     map[string]*Games
+	words     []string
+	random    *rand.Rand
+	Lock      sync.Mutex
 }
 
 func NewService() *Service {
@@ -35,10 +39,11 @@ func NewService() *Service {
 	}
 
 	return &Service{
-		users:  make(map[uuid.UUID]*User),
-		games:  make(map[string]*Games),
-		words:  words,
-		random: rand.New(rand.NewSource(time.Now().UnixNano())),
+		users:     make(map[uuid.UUID]*User),
+		usersByID: make(map[uuid.UUID]*User),
+		games:     make(map[string]*Games),
+		words:     words,
+		random:    rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 }
 

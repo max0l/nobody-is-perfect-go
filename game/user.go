@@ -37,6 +37,7 @@ func (s *Service) CreateUser(username *string) (*User, error) {
 	}
 
 	s.users[token] = user
+	s.usersByID[userID] = user
 
 	return user, nil
 }
