@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -22,14 +23,16 @@ type round struct {
 }
 
 type Games struct {
-	gameID       string
-	gameOwner    uuid.UUID
-	gameStatus   GameStatus
-	currentRound int
-	players      map[uuid.UUID]*User
-	rounds       map[int]*round
-	usersByPlace []uuid.UUID
-	placeByUser  map[uuid.UUID]int
+	gameID          string
+	gameOwner       uuid.UUID
+	gameStatus      GameStatus
+	currentRound    int
+	players         map[uuid.UUID]*User
+	lastSeenByUser  map[uuid.UUID]time.Time
+	allOfflineSince time.Time
+	rounds          map[int]*round
+	usersByPlace    []uuid.UUID
+	placeByUser     map[uuid.UUID]int
 }
 
 func (s *Service) CreateGame(gameCreator uuid.UUID) (string, error) {
@@ -43,18 +46,21 @@ func (s *Service) CreateGame(gameCreator uuid.UUID) (string, error) {
 
 	gameID := s.generateNewGame()
 
+	now := s.now()
 	newGame := &Games{
-		gameID:       gameID,
-		gameOwner:    user.userID,
-		gameStatus:   GameStatusCreated,
-		currentRound: 0,
-		players:      make(map[uuid.UUID]*User),
-		rounds:       make(map[int]*round),
-		placeByUser:  make(map[uuid.UUID]int),
+		gameID:         gameID,
+		gameOwner:      user.userID,
+		gameStatus:     GameStatusCreated,
+		currentRound:   0,
+		players:        make(map[uuid.UUID]*User),
+		lastSeenByUser: make(map[uuid.UUID]time.Time),
+		rounds:         make(map[int]*round),
+		placeByUser:    make(map[uuid.UUID]int),
 	}
 
 	s.games[gameID] = newGame
 	newGame.players[user.userID] = user
+	newGame.lastSeenByUser[user.userID] = now
 	newGame.appendPlayer(user.userID)
 
 	return gameID, nil

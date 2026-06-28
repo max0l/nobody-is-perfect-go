@@ -142,7 +142,7 @@ func (s *Service) GetStatus(gameID string, token uuid.UUID) (StatusView, error) 
 
 	view := StatusView{
 		GameStatus:    game.gameStatus,
-		Players:       game.playOrderEntries(game.players),
+		Players:       game.playOrderEntries(game.players, s.now()),
 		GameOwnerUUID: game.gameOwner,
 		PlayerCount:   len(game.players),
 		Round:         game.currentRound,

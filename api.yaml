@@ -71,6 +71,9 @@ components:
         username:
           type: string
           example: "john_doe"
+        online:
+          type: boolean
+          example: true
 
     UserToken:
       type: object
@@ -107,6 +110,9 @@ components:
         username:
           type: string
           example: "john_doe"
+        online:
+          type: boolean
+          example: true
         place:
           type: integer
           example: 1
@@ -190,6 +196,20 @@ components:
         message:
           type: string
           example: "Voting started successfully"
+
+    PingResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "pong"
+
+    PlayerKickedResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Player kicked successfully"
 
     GameStatusResponse:
       type: object
@@ -524,6 +544,57 @@ paths:
               schema:
                 $ref: "#/components/schemas/GameNotFoundResponse"
 
+  /api/game/{gameId}/players/{userUUID}:
+    delete:
+      summary: Kick a player from a game
+      description: Only the user who created the game can kick players
+      operationId: kickPlayer
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "chug.value.funds"
+        - name: userUUID
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        '200':
+          description: Player kicked successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerKickedResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
+
   /api/game/{gameId}/start:
     post:
       summary: Start the game
@@ -591,6 +662,52 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GameStatusResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
+
+  /api/game/{gameId}/ping:
+    post:
+      summary: Mark a player as still connected
+      description: Players should call this endpoint regularly to stay online in the game
+      operationId: pingGame
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "chug.value.funds"
+      responses:
+        '200':
+          description: Player presence updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PingResponse"
         '400':
           description: Bad request, missing required fields
           content:

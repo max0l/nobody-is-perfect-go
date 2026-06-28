@@ -1,11 +1,16 @@
 package game
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type PlayOrderEntry struct {
 	Place    int
 	UserUUID uuid.UUID
 	Username string
+	Online   bool
 }
 
 type SetPlayOrderEntry struct {
@@ -32,6 +37,8 @@ func (s *Service) JoinGame(gameID string, token uuid.UUID) error {
 	}
 
 	game.players[user.userID] = user
+	game.lastSeenByUser[user.userID] = s.now()
+	game.allOfflineSince = time.Time{}
 	game.appendPlayer(user.userID)
 
 	return nil
@@ -49,7 +56,7 @@ func (s *Service) GetPlayOrder(gameID string, token uuid.UUID) ([]PlayOrderEntry
 		return nil, ErrForbidden
 	}
 
-	return game.playOrderEntries(game.players), nil
+	return game.playOrderEntries(game.players, s.now()), nil
 }
 
 func (s *Service) SetPlayOrder(gameID string, token uuid.UUID, entries []SetPlayOrderEntry) error {
@@ -68,6 +75,10 @@ func (s *Service) SetPlayOrder(gameID string, token uuid.UUID, entries []SetPlay
 }
 
 func (s *Service) gameAndUser(gameID string, token uuid.UUID) (*Games, *User, error) {
+	if s.discardExpiredGameLocked(gameID, s.now()) {
+		return nil, nil, ErrGameNotFound
+	}
+
 	game, exists := s.games[gameID]
 	if !exists {
 		return nil, nil, ErrGameNotFound
@@ -90,7 +101,7 @@ func (g *Games) appendPlayer(userID uuid.UUID) {
 	g.placeByUser[userID] = len(g.usersByPlace)
 }
 
-func (g *Games) playOrderEntries(players map[uuid.UUID]*User) []PlayOrderEntry {
+func (g *Games) playOrderEntries(players map[uuid.UUID]*User, now time.Time) []PlayOrderEntry {
 	entries := make([]PlayOrderEntry, 0, len(g.usersByPlace))
 	for place, userID := range g.usersByPlace {
 		user := players[userID]
@@ -102,6 +113,7 @@ func (g *Games) playOrderEntries(players map[uuid.UUID]*User) []PlayOrderEntry {
 			Place:    place + 1,
 			UserUUID: user.userID,
 			Username: user.username,
+			Online:   g.onlineAt(userID, now),
 		})
 	}
 

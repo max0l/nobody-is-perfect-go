@@ -13,7 +13,11 @@ import (
 	"github.com/google/uuid"
 )
 
-const minimumWordCount = 1000
+const (
+	minimumWordCount   = 1000
+	PlayerOfflineAfter = 15 * time.Second
+	GameDiscardAfter   = 60 * time.Second
+)
 
 var (
 	ErrUsernameRequired = errors.New("username is required")
@@ -24,6 +28,8 @@ var (
 	ErrAnswerRequired   = errors.New("answer is required")
 	ErrInvalidRound     = errors.New("invalid round state")
 	ErrAnswerNotFound   = errors.New("answer does not exist")
+	ErrCannotKickOwner  = errors.New("cannot kick game owner")
+	ErrPlayerNotFound   = errors.New("player does not exist")
 )
 
 type Service struct {
@@ -32,6 +38,7 @@ type Service struct {
 	games     map[string]*Games
 	words     []string
 	random    *rand.Rand
+	now       func() time.Time
 	Lock      sync.Mutex
 }
 
@@ -47,6 +54,7 @@ func NewService() *Service {
 		games:     make(map[string]*Games),
 		words:     words,
 		random:    rand.New(rand.NewSource(time.Now().UnixNano())),
+		now:       time.Now,
 	}
 }
 

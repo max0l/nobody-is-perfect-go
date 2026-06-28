@@ -256,7 +256,8 @@ func (s *StrictServer) GetGameStatus(ctx context.Context, request GetGameStatusR
 	for _, player := range status.Players {
 		userID := player.UserUUID
 		username := player.Username
-		users = append(users, User{UserUUID: &userID, Username: &username})
+		online := player.Online
+		users = append(users, User{UserUUID: &userID, Username: &username, Online: &online})
 	}
 	gameStatus := int(status.GameStatus)
 	receivedAnswers := status.ReceivedAnswers
@@ -312,6 +313,35 @@ func (s *StrictServer) VoteForAnswer(ctx context.Context, request VoteForAnswerR
 
 	msg := "vote recorded successfully"
 	return VoteForAnswer200JSONResponse{Message: &msg}, nil
+}
+
+func (s *StrictServer) PingGame(ctx context.Context, request PingGameRequestObject) (PingGameResponseObject, error) {
+	token, ok := sessionToken(ctx)
+	if !ok {
+		msg := UnauthorizedError
+		return PingGame401JSONResponse{Error: &msg}, nil
+	}
+
+	if err := s.gameService.PingGame(request.GameId, token); err != nil {
+		if errors.Is(err, game.ErrGameNotFound) {
+			msg := GameNotFoundError
+			return PingGame404JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrUserNotFound) {
+			msg := UnauthorizedError
+			return PingGame401JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrForbidden) {
+			msg := ForbiddenError
+			return PingGame403JSONResponse{Error: &msg}, nil
+		}
+
+		msg := BadRequestError
+		return PingGame400JSONResponse{Error: &msg}, nil
+	}
+
+	msg := "pong"
+	return PingGame200JSONResponse{Message: &msg}, nil
 }
 
 func (s *StrictServer) HealthCheck(ctx context.Context, request HealthCheckRequestObject) (HealthCheckResponseObject, error) {
@@ -375,10 +405,12 @@ func (s *StrictServer) GetPlayOrder(ctx context.Context, request GetPlayOrderReq
 		place := entry.Place
 		userID := entry.UserUUID
 		username := entry.Username
+		online := entry.Online
 		response = append(response, PlayOrderUser{
 			Place:    &place,
 			UserUUID: &userID,
 			Username: &username,
+			Online:   &online,
 		})
 	}
 
@@ -429,6 +461,35 @@ func (s *StrictServer) SetPlayOrder(ctx context.Context, request SetPlayOrderReq
 
 	msg := "play order set"
 	return SetPlayOrder200JSONResponse{Message: &msg}, nil
+}
+
+func (s *StrictServer) KickPlayer(ctx context.Context, request KickPlayerRequestObject) (KickPlayerResponseObject, error) {
+	token, ok := sessionToken(ctx)
+	if !ok {
+		msg := UnauthorizedError
+		return KickPlayer401JSONResponse{Error: &msg}, nil
+	}
+
+	if err := s.gameService.KickPlayer(request.GameId, token, request.UserUUID); err != nil {
+		if errors.Is(err, game.ErrGameNotFound) || errors.Is(err, game.ErrPlayerNotFound) {
+			msg := GameNotFoundError
+			return KickPlayer404JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrUserNotFound) {
+			msg := UnauthorizedError
+			return KickPlayer401JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrForbidden) || errors.Is(err, game.ErrCannotKickOwner) {
+			msg := ForbiddenError
+			return KickPlayer403JSONResponse{Error: &msg}, nil
+		}
+
+		msg := BadRequestError
+		return KickPlayer400JSONResponse{Error: &msg}, nil
+	}
+
+	msg := "player kicked successfully"
+	return KickPlayer200JSONResponse{Message: &msg}, nil
 }
 
 func (s *StrictServer) TriggerReveal(ctx context.Context, request TriggerRevealRequestObject) (TriggerRevealResponseObject, error) {

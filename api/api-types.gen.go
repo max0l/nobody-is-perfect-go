@@ -111,6 +111,11 @@ type NextRoundResponse struct {
 	Message *string `json:"message,omitempty"`
 }
 
+// PingResponse defines model for PingResponse.
+type PingResponse struct {
+	Message *string `json:"message,omitempty"`
+}
+
 // PlayOrderResponse defines model for PlayOrderResponse.
 type PlayOrderResponse struct {
 	PlayOrder *[]PlayOrderUser `json:"playOrder,omitempty"`
@@ -123,9 +128,15 @@ type PlayOrderSetResponse struct {
 
 // PlayOrderUser defines model for PlayOrderUser.
 type PlayOrderUser struct {
+	Online   *bool   `json:"online,omitempty"`
 	Place    *int    `json:"place,omitempty"`
 	UserUUID *UUID   `json:"userUUID,omitempty"`
 	Username *string `json:"username,omitempty"`
+}
+
+// PlayerKickedResponse defines model for PlayerKickedResponse.
+type PlayerKickedResponse struct {
+	Message *string `json:"message,omitempty"`
 }
 
 // RevealVotesResponse defines model for RevealVotesResponse.
@@ -156,6 +167,7 @@ type UnauthorizedResponse struct {
 
 // User defines model for User.
 type User struct {
+	Online   *bool   `json:"online,omitempty"`
 	UserUUID *UUID   `json:"userUUID,omitempty"`
 	Username *string `json:"username,omitempty"`
 }

@@ -367,6 +367,68 @@ func TestVotingRevealAndStatusEndpoints(t *testing.T) {
 	}
 }
 
+func TestPingGameEndpointUpdatesOnlineStatus(t *testing.T) {
+	server, gameID, owner, _ := serverWithGameAndJoinedPlayer(t)
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+
+	response, err := server.PingGame(ownerCtx, PingGameRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("PingGame returned error: %v", err)
+	}
+	if _, ok := response.(PingGame200JSONResponse); !ok {
+		t.Fatalf("expected PingGame200JSONResponse, got %T", response)
+	}
+
+	statusResponse, err := server.GetGameStatus(ownerCtx, GetGameStatusRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetGameStatus returned error: %v", err)
+	}
+	status := statusResponse.(GetGameStatus200JSONResponse)
+	if status.Users == nil || len(*status.Users) == 0 {
+		t.Fatal("expected users in status")
+	}
+	for _, user := range *status.Users {
+		if user.UserUUID != nil && *user.UserUUID == *owner.UserUUID {
+			if user.Online == nil || !*user.Online {
+				t.Fatal("expected pinged owner to be online")
+			}
+			return
+		}
+	}
+	t.Fatal("expected owner in status")
+}
+
+func TestKickPlayerEndpointRequiresCreator(t *testing.T) {
+	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+
+	forbiddenResponse, err := server.KickPlayer(playerCtx, KickPlayerRequestObject{GameId: gameID, UserUUID: *owner.UserUUID})
+	if err != nil {
+		t.Fatalf("KickPlayer non-owner returned error: %v", err)
+	}
+	if _, ok := forbiddenResponse.(KickPlayer403JSONResponse); !ok {
+		t.Fatalf("expected KickPlayer403JSONResponse, got %T", forbiddenResponse)
+	}
+
+	response, err := server.KickPlayer(ownerCtx, KickPlayerRequestObject{GameId: gameID, UserUUID: *player.UserUUID})
+	if err != nil {
+		t.Fatalf("KickPlayer owner returned error: %v", err)
+	}
+	if _, ok := response.(KickPlayer200JSONResponse); !ok {
+		t.Fatalf("expected KickPlayer200JSONResponse, got %T", response)
+	}
+
+	playOrderResponse, err := server.GetPlayOrder(ownerCtx, GetPlayOrderRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetPlayOrder returned error: %v", err)
+	}
+	playOrder := playOrderResponse.(GetPlayOrder200JSONResponse)
+	if playOrder.PlayOrder == nil || len(*playOrder.PlayOrder) != 1 || *(*playOrder.PlayOrder)[0].UserUUID != *owner.UserUUID {
+		t.Fatalf("expected only owner after kick, got %+v", playOrder.PlayOrder)
+	}
+}
+
 func serverWithGameAndJoinedPlayer(t *testing.T) (*StrictServer, string, CreateUser201JSONResponse, CreateUser201JSONResponse) {
 	t.Helper()
 

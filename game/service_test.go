@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -183,6 +184,136 @@ func TestSetPlayOrderRejectsInvalidOrder(t *testing.T) {
 	})
 	if !errors.Is(err, ErrInvalidPlayOrder) {
 		t.Fatalf("expected ErrInvalidPlayOrder, got %v", err)
+	}
+}
+
+func TestPingUpdatesPresenceAndPlayersBecomeOffline(t *testing.T) {
+	base := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	service, gameID, owner, player := serviceWithTwoPlayersAt(t, base)
+
+	status, err := service.GetStatus(gameID, *owner.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetStatus returned error: %v", err)
+	}
+	for _, player := range status.Players {
+		if !player.Online {
+			t.Fatalf("expected player online immediately after join: %+v", player)
+		}
+	}
+
+	service.now = func() time.Time { return base.Add(PlayerOfflineAfter + time.Second) }
+	status, err = service.GetStatus(gameID, *owner.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetStatus returned error after timeout: %v", err)
+	}
+	for _, player := range status.Players {
+		if player.Online {
+			t.Fatalf("expected player offline after timeout: %+v", player)
+		}
+	}
+
+	if err := service.PingGame(gameID, *player.GetUserToken()); err != nil {
+		t.Fatalf("PingGame returned error: %v", err)
+	}
+	status, err = service.GetStatus(gameID, *player.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetStatus returned error after ping: %v", err)
+	}
+	foundPlayer := false
+	for _, entry := range status.Players {
+		if entry.UserUUID == *player.GetUserID() {
+			foundPlayer = true
+			if !entry.Online {
+				t.Fatal("expected pinged player to be online")
+			}
+		}
+	}
+	if !foundPlayer {
+		t.Fatal("expected player in status")
+	}
+}
+
+func TestGameIsDiscardedAfterAllPlayersOfflineForGracePeriod(t *testing.T) {
+	base := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	service, gameID, owner, _ := serviceWithTwoPlayersAt(t, base)
+
+	service.now = func() time.Time { return base.Add(PlayerOfflineAfter + GameDiscardAfter + time.Second) }
+	if _, err := service.GetStatus(gameID, *owner.GetUserToken()); !errors.Is(err, ErrGameNotFound) {
+		t.Fatalf("expected ErrGameNotFound after all players offline grace period, got %v", err)
+	}
+	if service.games[gameID] != nil {
+		t.Fatal("expected game to be removed")
+	}
+}
+
+func TestKickPlayerRemovesPlayerAndPreventsFurtherMutation(t *testing.T) {
+	service, gameID, owner, player := serviceWithTwoPlayers(t)
+
+	if err := service.KickPlayer(gameID, *owner.GetUserToken(), *player.GetUserID()); err != nil {
+		t.Fatalf("KickPlayer returned error: %v", err)
+	}
+	entries, err := service.GetPlayOrder(gameID, *owner.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetPlayOrder returned error: %v", err)
+	}
+	if len(entries) != 1 || entries[0].UserUUID != *owner.GetUserID() {
+		t.Fatalf("expected only owner after kick, got %+v", entries)
+	}
+	if err := service.PingGame(gameID, *player.GetUserToken()); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("expected kicked player ping to be forbidden, got %v", err)
+	}
+}
+
+func TestKickPlayerRequiresOwnerAndCannotKickOwner(t *testing.T) {
+	service, gameID, owner, player := serviceWithTwoPlayers(t)
+
+	if err := service.KickPlayer(gameID, *player.GetUserToken(), *owner.GetUserID()); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("expected non-owner kick to be forbidden, got %v", err)
+	}
+	if err := service.KickPlayer(gameID, *owner.GetUserToken(), *owner.GetUserID()); !errors.Is(err, ErrCannotKickOwner) {
+		t.Fatalf("expected ErrCannotKickOwner, got %v", err)
+	}
+}
+
+func TestKickCurrentRoundMasterRotatesMaster(t *testing.T) {
+	service, gameID, owner, player := serviceWithTwoPlayers(t)
+	if err := service.StartGame(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("StartGame returned error: %v", err)
+	}
+	ownerAnswer := "owner answer"
+	playerAnswer := "player answer"
+	if err := service.SendAnswer(gameID, *owner.GetUserToken(), &ownerAnswer); err != nil {
+		t.Fatalf("SendAnswer owner returned error: %v", err)
+	}
+	if err := service.SendAnswer(gameID, *player.GetUserToken(), &playerAnswer); err != nil {
+		t.Fatalf("SendAnswer player returned error: %v", err)
+	}
+	if err := service.StartVoting(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("StartVoting returned error: %v", err)
+	}
+	if _, err := service.RevealRound(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("RevealRound returned error: %v", err)
+	}
+	if err := service.NextRound(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("NextRound returned error: %v", err)
+	}
+	status, err := service.GetStatus(gameID, *owner.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetStatus returned error: %v", err)
+	}
+	if status.RoundMasterUUID != *player.GetUserID() {
+		t.Fatalf("expected player as round master before kick, got %s", status.RoundMasterUUID)
+	}
+
+	if err := service.KickPlayer(gameID, *owner.GetUserToken(), *player.GetUserID()); err != nil {
+		t.Fatalf("KickPlayer returned error: %v", err)
+	}
+	status, err = service.GetStatus(gameID, *owner.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetStatus returned error after kick: %v", err)
+	}
+	if status.RoundMasterUUID != *owner.GetUserID() {
+		t.Fatalf("expected owner as round master after kick, got %s", status.RoundMasterUUID)
 	}
 }
 
@@ -383,7 +514,14 @@ func TestAnswersAreLimitedToLabelsAThroughD(t *testing.T) {
 func serviceWithTwoPlayers(t *testing.T) (*Service, string, *User, *User) {
 	t.Helper()
 
+	return serviceWithTwoPlayersAt(t, time.Now())
+}
+
+func serviceWithTwoPlayersAt(t *testing.T, now time.Time) (*Service, string, *User, *User) {
+	t.Helper()
+
 	service := NewService()
+	service.now = func() time.Time { return now }
 	ownerName := "owner"
 	owner, err := service.CreateUser(&ownerName)
 	if err != nil {
