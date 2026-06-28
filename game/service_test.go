@@ -31,6 +31,17 @@ func TestCreateUserStoresUserByToken(t *testing.T) {
 	}
 }
 
+func TestNewServiceLoadsWordsAtStartup(t *testing.T) {
+	service := NewService()
+
+	if len(service.words) <= minimumWordCount {
+		t.Fatalf("expected more than %d words, got %d", minimumWordCount, len(service.words))
+	}
+	if service.random == nil {
+		t.Fatal("expected random source to be initialized")
+	}
+}
+
 func TestCreateUserRequiresUsername(t *testing.T) {
 	service := NewService()
 
