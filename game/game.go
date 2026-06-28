@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/google/uuid"
@@ -61,7 +62,7 @@ func (s *Service) generateNewGame() string {
 
 // getThreeWords is chosen 3 words from a file randomly.
 func getThreeWords() string {
-	file, err := os.Open("./../words.txt")
+	file, err := openWordsFile()
 	if err != nil {
 		panic("Failed to read words file: " + err.Error())
 	}
@@ -82,7 +83,7 @@ func getThreeWords() string {
 		panic("Error reading words file: " + err.Error())
 	}
 
-	if len(words) != 3 {
+	if len(words) < 3 {
 		panic("Words file must contain at least 3 words")
 	}
 
@@ -94,4 +95,15 @@ func getThreeWords() string {
 
 	return fmt.Sprintf("%s.%s.%s", selected[0], selected[1], selected[2])
 
+}
+
+func openWordsFile() (*os.File, error) {
+	for _, path := range []string{"words.txt", filepath.Join("..", "words.txt")} {
+		file, err := os.Open(path)
+		if err == nil {
+			return file, nil
+		}
+	}
+
+	return nil, os.ErrNotExist
 }
