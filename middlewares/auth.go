@@ -12,8 +12,6 @@ import (
 	ginmiddleware "github.com/oapi-codegen/gin-middleware"
 )
 
-const SessionCookieName = "session"
-
 var ErrSessionCookieRequired = errors.New("session cookie required")
 
 func SessionAuthMiddleware() gin.HandlerFunc {
@@ -52,7 +50,7 @@ func SessionAuthenticator(ctx context.Context, input *openapi3filter.Authenticat
 }
 
 func sessionCookieValue(r *http.Request) (string, bool) {
-	cookie, err := r.Cookie(SessionCookieName)
+	cookie, err := r.Cookie(api.SessionCookieName)
 	if err != nil || cookie.Value == "" {
 		return "", false
 	}

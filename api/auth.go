@@ -1,7 +1,9 @@
 package api
 
 const (
+	SessionCookieName     = "session"
 	SessionCookieValueKey = "sessionCookie.Value"
+	SessionCookieMaxAge   = 60 * 60 * 24 * 30
 
 	BadRequestError   = "bad request, missing required fields"
 	UnauthorizedError = "unauthorized, invalid or missing token"

@@ -6,7 +6,9 @@ package api
 import (
 	"context"
 	"errors"
+	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/max0l/nobody-is-perfect-go/game"
 	"github.com/rs/zerolog/log"
@@ -498,6 +500,7 @@ func (s *StrictServer) CreateUser(ctx context.Context, request CreateUserRequest
 	user, err := s.gameService.CreateUser(request.Body.Username)
 
 	if err == nil {
+		setSessionCookie(ctx, user.GetUserToken().String())
 		return CreateUser201JSONResponse{
 			UserToken: user.GetUserToken(),
 			UserUUID:  user.GetUserID(),
@@ -512,6 +515,16 @@ func (s *StrictServer) CreateUser(ctx context.Context, request CreateUserRequest
 
 	msg := ForbiddenError
 	return CreateUser403JSONResponse{Error: &msg}, nil
+}
+
+func setSessionCookie(ctx context.Context, token string) {
+	ginContext, ok := ctx.(*gin.Context)
+	if !ok {
+		return
+	}
+
+	ginContext.SetSameSite(http.SameSiteStrictMode)
+	ginContext.SetCookie(SessionCookieName, token, SessionCookieMaxAge, "/", "", true, true)
 }
 
 func sessionToken(ctx context.Context) (uuid.UUID, bool) {

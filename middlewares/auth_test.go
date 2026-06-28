@@ -65,7 +65,7 @@ func TestSessionAuthMiddlewareStoresSessionCookieValue(t *testing.T) {
 
 	response := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "session-token"})
+	req.AddCookie(&http.Cookie{Name: api.SessionCookieName, Value: "session-token"})
 	router.ServeHTTP(response, req)
 
 	if response.Code != http.StatusOK {
@@ -90,7 +90,7 @@ func TestSessionAuthenticatorRequiresSessionCookie(t *testing.T) {
 
 func TestSessionAuthenticatorAcceptsSessionCookie(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	req.AddCookie(&http.Cookie{Name: SessionCookieName, Value: "session-token"})
+	req.AddCookie(&http.Cookie{Name: api.SessionCookieName, Value: "session-token"})
 	input := &openapi3filter.AuthenticationInput{
 		RequestValidationInput: &openapi3filter.RequestValidationInput{Request: req},
 		SecuritySchemeName:     "sessionCookie",

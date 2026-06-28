@@ -2,7 +2,11 @@ package api
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+
+	"github.com/gin-gonic/gin"
 )
 
 func TestCreateUserReturnsToken(t *testing.T) {
@@ -23,6 +27,50 @@ func TestCreateUserReturnsToken(t *testing.T) {
 	}
 	if created.UserUUID == nil {
 		t.Fatal("expected user UUID to be set")
+	}
+}
+
+func TestCreateUserSetsSecureHTTPOnlySessionCookie(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	server := NewServer()
+	username := "alice"
+	response := httptest.NewRecorder()
+	ginContext, _ := gin.CreateTestContext(response)
+
+	createdResponse, err := server.CreateUser(ginContext, CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &username}})
+	if err != nil {
+		t.Fatalf("CreateUser returned error: %v", err)
+	}
+	created, ok := createdResponse.(CreateUser201JSONResponse)
+	if !ok {
+		t.Fatalf("expected CreateUser201JSONResponse, got %T", createdResponse)
+	}
+
+	cookies := response.Result().Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf("expected one cookie, got %d", len(cookies))
+	}
+	cookie := cookies[0]
+	if cookie.Name != SessionCookieName {
+		t.Fatalf("expected cookie name %q, got %q", SessionCookieName, cookie.Name)
+	}
+	if cookie.Value != created.UserToken.String() {
+		t.Fatalf("expected session cookie value to match user token")
+	}
+	if !cookie.HttpOnly {
+		t.Fatal("expected session cookie to be HttpOnly")
+	}
+	if !cookie.Secure {
+		t.Fatal("expected session cookie to be Secure")
+	}
+	if cookie.SameSite != http.SameSiteStrictMode {
+		t.Fatalf("expected SameSite=Strict, got %v", cookie.SameSite)
+	}
+	if cookie.Path != "/" {
+		t.Fatalf("expected cookie path /, got %q", cookie.Path)
+	}
+	if cookie.MaxAge != SessionCookieMaxAge {
+		t.Fatalf("expected cookie max age %d, got %d", SessionCookieMaxAge, cookie.MaxAge)
 	}
 }
 
