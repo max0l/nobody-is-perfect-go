@@ -21,6 +21,7 @@ var (
 	ErrGameNotFound     = errors.New("game does not exist")
 	ErrForbidden        = errors.New("forbidden")
 	ErrInvalidPlayOrder = errors.New("invalid play order")
+	ErrAnswerRequired   = errors.New("answer is required")
 )
 
 type Service struct {

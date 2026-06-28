@@ -7,16 +7,24 @@ import (
 )
 
 type Answer struct {
-	answer     string
-	answerUUID uuid.UUID
+	answerID uuid.UUID
+	userID   uuid.UUID
+	answer   string
+}
+
+type round struct {
+	answersByUser map[uuid.UUID]*Answer
+	answersByID   map[uuid.UUID]*Answer
+	scrambled     []uuid.UUID
 }
 
 type Games struct {
 	gameID       string
 	gameOwner    uuid.UUID
 	gameStatus   GameStatus
+	currentRound int
 	players      map[uuid.UUID]*User
-	answers      map[uuid.UUID]*Answer
+	rounds       map[int]*round
 	usersByPlace []uuid.UUID
 	placeByUser  map[uuid.UUID]int
 }
@@ -33,12 +41,13 @@ func (s *Service) CreateGame(gameCreator uuid.UUID) (string, error) {
 	gameID := s.generateNewGame()
 
 	newGame := &Games{
-		gameID:      gameID,
-		gameOwner:   user.userID,
-		gameStatus:  GameStatusCreated,
-		players:     make(map[uuid.UUID]*User),
-		answers:     make(map[uuid.UUID]*Answer),
-		placeByUser: make(map[uuid.UUID]int),
+		gameID:       gameID,
+		gameOwner:    user.userID,
+		gameStatus:   GameStatusCreated,
+		currentRound: 1,
+		players:      make(map[uuid.UUID]*User),
+		rounds:       make(map[int]*round),
+		placeByUser:  make(map[uuid.UUID]int),
 	}
 
 	s.games[gameID] = newGame
@@ -46,6 +55,27 @@ func (s *Service) CreateGame(gameCreator uuid.UUID) (string, error) {
 	newGame.appendPlayer(user.userID)
 
 	return gameID, nil
+}
+
+func (g *Games) currentReaderID() uuid.UUID {
+	if len(g.usersByPlace) == 0 {
+		return uuid.Nil
+	}
+
+	return g.usersByPlace[(g.currentRound-1)%len(g.usersByPlace)]
+}
+
+func (g *Games) currentRoundState() *round {
+	state := g.rounds[g.currentRound]
+	if state == nil {
+		state = &round{
+			answersByUser: make(map[uuid.UUID]*Answer),
+			answersByID:   make(map[uuid.UUID]*Answer),
+		}
+		g.rounds[g.currentRound] = state
+	}
+
+	return state
 }
 
 func (s *Service) generateNewGame() string {

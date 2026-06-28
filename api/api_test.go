@@ -179,6 +179,50 @@ func TestSetPlayOrderRequiresOwner(t *testing.T) {
 	}
 }
 
+func TestAnswerEndpointShowsAuthorsOnlyToCurrentReader(t *testing.T) {
+	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+	ownerAnswer := "owner answer"
+	playerAnswer := "player answer"
+
+	if response, err := server.SendAnswer(ownerCtx, SendAnswerRequestObject{GameId: gameID, Body: &SendAnswerJSONRequestBody{Answer: &ownerAnswer}}); err != nil {
+		t.Fatalf("SendAnswer owner returned error: %v", err)
+	} else if _, ok := response.(SendAnswer200JSONResponse); !ok {
+		t.Fatalf("expected SendAnswer200JSONResponse, got %T", response)
+	}
+	if response, err := server.SendAnswer(playerCtx, SendAnswerRequestObject{GameId: gameID, Body: &SendAnswerJSONRequestBody{Answer: &playerAnswer}}); err != nil {
+		t.Fatalf("SendAnswer player returned error: %v", err)
+	} else if _, ok := response.(SendAnswer200JSONResponse); !ok {
+		t.Fatalf("expected SendAnswer200JSONResponse, got %T", response)
+	}
+
+	readerResponse, err := server.GetAnswers(ownerCtx, GetAnswersRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetAnswers reader returned error: %v", err)
+	}
+	readerAnswers := readerResponse.(GetAnswers200JSONResponse)
+	if readerAnswers.Answers == nil || len(*readerAnswers.Answers) != 2 {
+		t.Fatalf("expected 2 reader answers, got %v", readerAnswers.Answers)
+	}
+	for _, answer := range *readerAnswers.Answers {
+		if answer.Label == nil || answer.AnswerUUID == nil || answer.UserUUID == nil || answer.Username == nil {
+			t.Fatalf("expected reader answer to include author fields: %+v", answer)
+		}
+	}
+
+	playerResponse, err := server.GetAnswers(playerCtx, GetAnswersRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetAnswers player returned error: %v", err)
+	}
+	playerAnswers := playerResponse.(GetAnswers200JSONResponse)
+	for _, answer := range *playerAnswers.Answers {
+		if answer.UserUUID != nil || answer.Username != nil {
+			t.Fatalf("expected player answer to hide author fields: %+v", answer)
+		}
+	}
+}
+
 func serverWithGameAndJoinedPlayer(t *testing.T) (*StrictServer, string, CreateUser201JSONResponse, CreateUser201JSONResponse) {
 	t.Helper()
 

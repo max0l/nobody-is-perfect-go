@@ -186,6 +186,95 @@ func TestSetPlayOrderRejectsInvalidOrder(t *testing.T) {
 	}
 }
 
+func TestAnswersAreRoundScopedAndReaderSeesAuthors(t *testing.T) {
+	service, gameID, owner, player := serviceWithTwoPlayers(t)
+	ownerAnswer := "owner answer"
+	playerAnswer := "player answer"
+
+	if err := service.SendAnswer(gameID, *owner.GetUserToken(), &ownerAnswer); err != nil {
+		t.Fatalf("SendAnswer owner returned error: %v", err)
+	}
+	if err := service.SendAnswer(gameID, *player.GetUserToken(), &playerAnswer); err != nil {
+		t.Fatalf("SendAnswer player returned error: %v", err)
+	}
+
+	readerAnswers, err := service.GetAnswers(gameID, *owner.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetAnswers reader returned error: %v", err)
+	}
+	if len(readerAnswers) != 2 {
+		t.Fatalf("expected 2 reader answers, got %d", len(readerAnswers))
+	}
+	for _, answer := range readerAnswers {
+		if answer.Label == "" || answer.AnswerID == uuid.Nil || answer.UserUUID == uuid.Nil || answer.Username == "" {
+			t.Fatalf("expected reader answer to include label, ID, and author: %+v", answer)
+		}
+	}
+
+	playerAnswers, err := service.GetAnswers(gameID, *player.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetAnswers player returned error: %v", err)
+	}
+	for _, answer := range playerAnswers {
+		if answer.UserUUID != uuid.Nil || answer.Username != "" {
+			t.Fatalf("expected non-reader answer to hide author: %+v", answer)
+		}
+	}
+
+	if err := service.NextRound(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("NextRound returned error: %v", err)
+	}
+	nextRoundAnswers, err := service.GetAnswers(gameID, *player.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetAnswers next round returned error: %v", err)
+	}
+	if len(nextRoundAnswers) != 0 {
+		t.Fatalf("expected next round answers to start empty, got %+v", nextRoundAnswers)
+	}
+}
+
+func TestAnswersAreLimitedToLabelsAThroughD(t *testing.T) {
+	service := NewService()
+	users := make([]*User, 0, 5)
+	for i := 0; i < 5; i++ {
+		username := string(rune('a' + i))
+		user, err := service.CreateUser(&username)
+		if err != nil {
+			t.Fatalf("CreateUser returned error: %v", err)
+		}
+		users = append(users, user)
+	}
+
+	gameID, err := service.CreateGame(*users[0].GetUserToken())
+	if err != nil {
+		t.Fatalf("CreateGame returned error: %v", err)
+	}
+	for _, user := range users[1:] {
+		if err := service.JoinGame(gameID, *user.GetUserToken()); err != nil {
+			t.Fatalf("JoinGame returned error: %v", err)
+		}
+	}
+	for i, user := range users {
+		answer := string(rune('A' + i))
+		if err := service.SendAnswer(gameID, *user.GetUserToken(), &answer); err != nil {
+			t.Fatalf("SendAnswer returned error: %v", err)
+		}
+	}
+
+	answers, err := service.GetAnswers(gameID, *users[0].GetUserToken())
+	if err != nil {
+		t.Fatalf("GetAnswers returned error: %v", err)
+	}
+	if len(answers) != 4 {
+		t.Fatalf("expected 4 displayed answers, got %d", len(answers))
+	}
+	for i, answer := range answers {
+		if answer.Label != answerLabels[i] {
+			t.Fatalf("expected label %q, got %q", answerLabels[i], answer.Label)
+		}
+	}
+}
+
 func serviceWithTwoPlayers(t *testing.T) (*Service, string, *User, *User) {
 	t.Helper()
 

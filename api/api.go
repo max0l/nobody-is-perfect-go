@@ -45,13 +45,85 @@ func (s *StrictServer) CreateGame(ctx context.Context, request CreateGameRequest
 }
 
 func (s *StrictServer) GetAnswers(ctx context.Context, request GetAnswersRequestObject) (GetAnswersResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
+	token, ok := sessionToken(ctx)
+	if !ok {
+		msg := UnauthorizedError
+		return GetAnswers401JSONResponse{Error: &msg}, nil
+	}
+
+	answers, err := s.gameService.GetAnswers(request.GameId, token)
+	if err != nil {
+		if errors.Is(err, game.ErrGameNotFound) {
+			msg := GameNotFoundError
+			return GetAnswers404JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrUserNotFound) {
+			msg := UnauthorizedError
+			return GetAnswers401JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrForbidden) {
+			msg := ForbiddenError
+			return GetAnswers403JSONResponse{Error: &msg}, nil
+		}
+
+		msg := BadRequestError
+		return GetAnswers400JSONResponse{Error: &msg}, nil
+	}
+
+	response := make([]Answer, 0, len(answers))
+	for _, answer := range answers {
+		label := answer.Label
+		answerID := answer.AnswerID
+		answerText := answer.Answer
+		responseAnswer := Answer{
+			Label:      &label,
+			AnswerUUID: &answerID,
+			Answer:     &answerText,
+		}
+		if answer.UserUUID != uuid.Nil {
+			userID := answer.UserUUID
+			username := answer.Username
+			responseAnswer.UserUUID = &userID
+			responseAnswer.Username = &username
+		}
+
+		response = append(response, responseAnswer)
+	}
+
+	return GetAnswers200JSONResponse{Answers: &response}, nil
 }
 
 func (s *StrictServer) SendAnswer(ctx context.Context, request SendAnswerRequestObject) (SendAnswerResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
+	token, ok := sessionToken(ctx)
+	if !ok {
+		msg := UnauthorizedError
+		return SendAnswer401JSONResponse{Error: &msg}, nil
+	}
+	if request.Body == nil {
+		msg := BadRequestError
+		return SendAnswer400JSONResponse{Error: &msg}, nil
+	}
+
+	if err := s.gameService.SendAnswer(request.GameId, token, request.Body.Answer); err != nil {
+		if errors.Is(err, game.ErrGameNotFound) {
+			msg := GameNotFoundError
+			return SendAnswer404JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrUserNotFound) {
+			msg := UnauthorizedError
+			return SendAnswer401JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrForbidden) {
+			msg := ForbiddenError
+			return SendAnswer403JSONResponse{Error: &msg}, nil
+		}
+
+		msg := BadRequestError
+		return SendAnswer400JSONResponse{Error: &msg}, nil
+	}
+
+	msg := "received the answer"
+	return SendAnswer200JSONResponse{Message: &msg}, nil
 }
 
 func (s *StrictServer) SelectValidAnswers(ctx context.Context, request SelectValidAnswersRequestObject) (SelectValidAnswersResponseObject, error) {
@@ -65,8 +137,32 @@ func (s *StrictServer) FinishGame(ctx context.Context, request FinishGameRequest
 }
 
 func (s *StrictServer) NextRound(ctx context.Context, request NextRoundRequestObject) (NextRoundResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
+	token, ok := sessionToken(ctx)
+	if !ok {
+		msg := UnauthorizedError
+		return NextRound401JSONResponse{Error: &msg}, nil
+	}
+
+	if err := s.gameService.NextRound(request.GameId, token); err != nil {
+		if errors.Is(err, game.ErrGameNotFound) {
+			msg := GameNotFoundError
+			return NextRound404JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrUserNotFound) {
+			msg := UnauthorizedError
+			return NextRound401JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrForbidden) {
+			msg := ForbiddenError
+			return NextRound403JSONResponse{Error: &msg}, nil
+		}
+
+		msg := BadRequestError
+		return NextRound400JSONResponse{Error: &msg}, nil
+	}
+
+	msg := "moved to the next round successfully"
+	return NextRound200JSONResponse{Message: &msg}, nil
 }
 
 func (s *StrictServer) RevealVotes(ctx context.Context, request RevealVotesRequestObject) (RevealVotesResponseObject, error) {

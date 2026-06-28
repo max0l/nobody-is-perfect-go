@@ -220,11 +220,19 @@ components:
     Answer:
       type: object
       properties:
+        label:
+          type: string
+          example: "A"
         answerUUID:
           $ref: "#/components/schemas/UUID"
         answer:
           type: string
-          example: "A: This is my answer to the question"
+          example: "This is my answer to the question"
+        userUUID:
+          $ref: "#/components/schemas/UUID"
+        username:
+          type: string
+          example: "john_doe"
 
     SelectValidAnswersRequest:
       type: object

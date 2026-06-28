@@ -15,6 +15,9 @@ const (
 type Answer struct {
 	Answer     *string `json:"answer,omitempty"`
 	AnswerUUID *UUID   `json:"answerUUID,omitempty"`
+	Label      *string `json:"label,omitempty"`
+	UserUUID   *UUID   `json:"userUUID,omitempty"`
+	Username   *string `json:"username,omitempty"`
 }
 
 // AnswerReceivedResponse defines model for AnswerReceivedResponse.
