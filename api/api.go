@@ -373,6 +373,19 @@ func (s *StrictServer) HealthCheck(ctx context.Context, request HealthCheckReque
 	return HealthCheck200JSONResponse("ok"), nil
 }
 
+func (s *StrictServer) GetSystemStatus(ctx context.Context, request GetSystemStatusRequestObject) (GetSystemStatusResponseObject, error) {
+	status := s.gameService.GetSystemStatus()
+	onlinePlayers := status.OnlinePlayers
+	players := status.Players
+	games := status.Games
+
+	return GetSystemStatus200JSONResponse{
+		OnlinePlayers: &onlinePlayers,
+		Players:       &players,
+		Games:         &games,
+	}, nil
+}
+
 func (s *StrictServer) JoinGame(ctx context.Context, request JoinGameRequestObject) (JoinGameResponseObject, error) {
 	token, ok := sessionToken(ctx)
 	if !ok {

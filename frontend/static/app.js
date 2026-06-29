@@ -6,6 +6,7 @@ const state = {
   answers: [],
   revealed: [],
   votedAnswerUUID: "",
+  systemStatus: null,
   pollTimer: 0,
   busy: false,
   menuOpen: false,
@@ -115,6 +116,16 @@ function bindStageEvents() {
     menuToggle.addEventListener("click", () => {
       state.menuOpen = !state.menuOpen;
       renderStage();
+    });
+  }
+
+  const systemStatus = document.querySelector("#system-status");
+  if (systemStatus) {
+    systemStatus.addEventListener("click", async () => {
+      await withBusy(async () => {
+        state.systemStatus = await api("/api/status");
+        notice("Server stats updated");
+      });
     });
   }
 
@@ -316,7 +327,7 @@ function renderStage(forcedStage, detail) {
     finished: renderFinished,
     error: () => renderError(detail),
   };
-  stageCard.innerHTML = renderers[stage]();
+  stageCard.innerHTML = `${renderers[stage]()}${systemStatusWidget()}`;
   bindStageEvents();
 }
 
@@ -455,6 +466,22 @@ function statRow() {
       <div><span>Answers</span><strong>${status.receivedAnswers || 0}</strong></div>
       <div><span>Votes</span><strong>${status.receivedVotes || 0}</strong></div>
     </div>
+  `;
+}
+
+function systemStatusWidget() {
+  const status = state.systemStatus;
+  return `
+    <section class="system-status" aria-label="Server statistics">
+      <button id="system-status" class="info-button" type="button" ${busyAttr()}>i Server stats</button>
+      ${status ? `
+        <div class="system-status-panel">
+          <div><span>Games</span><strong>${status.games || 0}</strong></div>
+          <div><span>Players</span><strong>${status.players || 0}</strong></div>
+          <div><span>Online</span><strong>${status.onlinePlayers || 0}</strong></div>
+        </div>
+      ` : ""}
+    </section>
   `;
 }
 

@@ -158,6 +158,13 @@ type SetPlayOrderRequest struct {
 	} `json:"playOrder,omitempty"`
 }
 
+// SystemStatusResponse defines model for SystemStatusResponse.
+type SystemStatusResponse struct {
+	Games         *int `json:"games,omitempty"`
+	OnlinePlayers *int `json:"onlinePlayers,omitempty"`
+	Players       *int `json:"players,omitempty"`
+}
+
 // UUID defines model for UUID.
 type UUID = uuid.UUID
 

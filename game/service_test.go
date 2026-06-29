@@ -148,6 +148,37 @@ func TestCreateGameStoresCreatedGame(t *testing.T) {
 	}
 }
 
+func TestGetSystemStatusCountsGamesPlayersAndOnlinePlayers(t *testing.T) {
+	base := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	service, _, _, _ := serviceWithTwoPlayersAt(t, base)
+
+	secondOwnerName := "second-owner"
+	secondOwner, err := service.CreateUser(&secondOwnerName)
+	if err != nil {
+		t.Fatalf("CreateUser second owner returned error: %v", err)
+	}
+	if _, err := service.CreateGame(*secondOwner.GetUserToken()); err != nil {
+		t.Fatalf("CreateGame second returned error: %v", err)
+	}
+
+	status := service.GetSystemStatus()
+	if status.Games != 2 {
+		t.Fatalf("expected 2 games, got %d", status.Games)
+	}
+	if status.Players != 3 {
+		t.Fatalf("expected 3 players, got %d", status.Players)
+	}
+	if status.OnlinePlayers != 3 {
+		t.Fatalf("expected 3 online players, got %d", status.OnlinePlayers)
+	}
+
+	service.now = func() time.Time { return base.Add(PlayerOfflineAfter + time.Second) }
+	status = service.GetSystemStatus()
+	if status.OnlinePlayers != 0 {
+		t.Fatalf("expected 0 online players after timeout, got %d", status.OnlinePlayers)
+	}
+}
+
 func TestCreateGameRejectsMaxConcurrentGames(t *testing.T) {
 	service := NewServiceWithOptions(ServiceOptions{MaxConcurrentGames: 1})
 	firstName := "first"

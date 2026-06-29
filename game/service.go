@@ -53,6 +53,12 @@ type Service struct {
 	Lock               sync.Mutex
 }
 
+type SystemStatusView struct {
+	OnlinePlayers int
+	Players       int
+	Games         int
+}
+
 func NewService() *Service {
 	return NewServiceWithOptions(ServiceOptions{})
 }
@@ -79,6 +85,28 @@ func NewServiceWithOptions(options ServiceOptions) *Service {
 		random:             rand.New(rand.NewSource(time.Now().UnixNano())),
 		now:                time.Now,
 	}
+}
+
+func (s *Service) GetSystemStatus() SystemStatusView {
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+
+	now := s.now()
+	for gameID := range s.games {
+		s.discardExpiredGameLocked(gameID, now)
+	}
+
+	status := SystemStatusView{Games: len(s.games)}
+	for _, game := range s.games {
+		status.Players += len(game.players)
+		for userID := range game.players {
+			if game.onlineAt(userID, now) {
+				status.OnlinePlayers++
+			}
+		}
+	}
+
+	return status
 }
 
 func loadWords(path string) ([]string, error) {

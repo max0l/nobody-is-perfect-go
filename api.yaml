@@ -60,6 +60,19 @@ components:
       type: string
       example: "OK"
 
+    SystemStatusResponse:
+      type: object
+      properties:
+        onlinePlayers:
+          type: integer
+          example: 3
+        players:
+          type: integer
+          example: 5
+        games:
+          type: integer
+          example: 2
+
     User:
       type: object
       properties:
@@ -335,6 +348,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /api/status:
+    get:
+      summary: Public server status
+      description: Returns aggregate in-memory game and player counts
+      operationId: getSystemStatus
+      responses:
+        '200':
+          description: Current aggregate server status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemStatusResponse"
 
   /api/create/user:
     post:

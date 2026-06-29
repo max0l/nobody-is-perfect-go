@@ -130,6 +130,53 @@ func TestLogoutWorksWithoutGinContext(t *testing.T) {
 	}
 }
 
+func TestGetSystemStatusReturnsAggregateCounts(t *testing.T) {
+	server := NewServer()
+	ownerName := "owner"
+	ownerResponse, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &ownerName}})
+	if err != nil {
+		t.Fatalf("CreateUser owner returned error: %v", err)
+	}
+	owner := ownerResponse.(CreateUser201JSONResponse)
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+	createdGameResponse, err := server.CreateGame(ownerCtx, CreateGameRequestObject{})
+	if err != nil {
+		t.Fatalf("CreateGame returned error: %v", err)
+	}
+	createdGame := createdGameResponse.(CreateGame201JSONResponse)
+
+	playerName := "player"
+	playerResponse, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &playerName}})
+	if err != nil {
+		t.Fatalf("CreateUser player returned error: %v", err)
+	}
+	player := playerResponse.(CreateUser201JSONResponse)
+	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+	if response, err := server.JoinGame(playerCtx, JoinGameRequestObject{GameId: *createdGame.GameId}); err != nil {
+		t.Fatalf("JoinGame returned error: %v", err)
+	} else if _, ok := response.(JoinGame200JSONResponse); !ok {
+		t.Fatalf("expected JoinGame200JSONResponse, got %T", response)
+	}
+
+	response, err := server.GetSystemStatus(context.Background(), GetSystemStatusRequestObject{})
+	if err != nil {
+		t.Fatalf("GetSystemStatus returned error: %v", err)
+	}
+	status, ok := response.(GetSystemStatus200JSONResponse)
+	if !ok {
+		t.Fatalf("expected GetSystemStatus200JSONResponse, got %T", response)
+	}
+	if status.Games == nil || *status.Games != 1 {
+		t.Fatalf("expected 1 game, got %v", status.Games)
+	}
+	if status.Players == nil || *status.Players != 2 {
+		t.Fatalf("expected 2 players, got %v", status.Players)
+	}
+	if status.OnlinePlayers == nil || *status.OnlinePlayers != 2 {
+		t.Fatalf("expected 2 online players, got %v", status.OnlinePlayers)
+	}
+}
+
 func TestCreateUserReturnsBadRequestForMissingUsername(t *testing.T) {
 	server := NewServer()
 
