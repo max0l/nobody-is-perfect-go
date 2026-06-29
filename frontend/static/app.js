@@ -72,6 +72,18 @@ function bindStageEvents() {
     });
   }
 
+  const joinGameToggle = document.querySelector("#join-game-toggle");
+  if (joinGameToggle) {
+    joinGameToggle.addEventListener("click", () => {
+      const joinForm = document.querySelector("#join-form");
+      if (!joinForm) return;
+      const isHidden = joinForm.hidden;
+      joinForm.hidden = !isHidden;
+      joinGameToggle.setAttribute("aria-expanded", String(isHidden));
+      if (isHidden) document.querySelector("#join-game-id")?.focus();
+    });
+  }
+
   const joinForm = document.querySelector("#join-form");
   if (joinForm) {
     joinForm.addEventListener("submit", async (event) => {
@@ -360,14 +372,14 @@ function renderChooseGame() {
     <p class="eyebrow">Step 2</p>
     <h1>Choose game</h1>
     <p class="lead">Playing as <strong>${escapeHTML(state.username)}</strong>. Create a new table or join an invite.</p>
-    <button id="create-game" class="primary" ${busyAttr()}>Create game</button>
-    <details class="submenu" ${suggestedGame ? "open" : ""}>
-      <summary>Join existing game</summary>
-      <form id="join-form" class="stack submenu-content">
-        <label>Game ID<input id="join-game-id" autocomplete="off" placeholder="chug.value.funds" value="${escapeAttr(suggestedGame)}"></label>
-        <button type="submit" ${busyAttr()}>Join game</button>
-      </form>
-    </details>
+    <div class="button-row">
+      <button id="create-game" class="primary" ${busyAttr()}>Create game</button>
+      <button id="join-game-toggle" type="button" aria-expanded="${suggestedGame ? "true" : "false"}" aria-controls="join-form" ${busyAttr()}>Join game</button>
+    </div>
+    <form id="join-form" class="stack join-panel" ${suggestedGame ? "" : "hidden"}>
+      <label>Game ID<input id="join-game-id" autocomplete="off" placeholder="chug.value.funds" value="${escapeAttr(suggestedGame)}"></label>
+      <button type="submit" ${busyAttr()}>Join this game</button>
+    </form>
     ${detailsMenu([logoutButton()])}
   `;
 }

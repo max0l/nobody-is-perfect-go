@@ -240,24 +240,15 @@ p { margin: 0; }
   line-height: 1;
 }
 
-.submenu {
-  border-top: 1px solid var(--line);
-  padding-top: 0.25rem;
+.join-panel {
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--surface);
+  padding: 0.85rem;
 }
 
-.submenu summary {
-  min-height: 2.75rem;
-  display: flex;
-  align-items: center;
-  color: var(--accent-dark);
-  cursor: pointer;
-  font-weight: 900;
-}
-
-.submenu-content {
-  display: grid;
-  gap: 0.8rem;
-  padding-top: 0.6rem;
+.join-panel[hidden] {
+  display: none;
 }
 
 .action-menu {
