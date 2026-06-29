@@ -5,6 +5,7 @@ const state = {
   status: null,
   answers: [],
   revealed: [],
+  votedAnswerUUID: "",
   pollTimer: 0,
   pingTimer: 0,
   busy: false,
@@ -113,6 +114,7 @@ function bindStageEvents() {
     button.addEventListener("click", async () => {
       await withBusy(async () => {
         await api(`/api/game/${encodeURIComponent(state.gameId)}/vote`, { method: "POST", body: { answerUUID: button.dataset.vote } });
+        setStoredVote(button.dataset.vote);
         notice("Vote recorded");
         await refreshGame();
       });
@@ -156,6 +158,7 @@ async function runAction(action) {
       return;
     }
     if (selected.clearRound) {
+      clearStoredVote();
       state.answers = [];
       state.revealed = [];
     }
@@ -173,14 +176,17 @@ async function enterGame(gameId, replace) {
   }
   renderStage("loading");
   await refreshGame();
+  loadStoredVote();
   startTimers();
 }
 
 function leaveGame() {
+  clearStoredVote();
   state.gameId = "";
   state.status = null;
   state.answers = [];
   state.revealed = [];
+  state.votedAnswerUUID = "";
   localStorage.removeItem("nip.gameId");
   stopTimers();
   if (location.pathname !== "/") history.pushState(null, "", "/");
@@ -188,12 +194,14 @@ function leaveGame() {
 }
 
 function logoutUser() {
+  clearStoredVote();
   state.userUUID = "";
   state.username = "";
   state.gameId = "";
   state.status = null;
   state.answers = [];
   state.revealed = [];
+  state.votedAnswerUUID = "";
   localStorage.removeItem("nip.userUUID");
   localStorage.removeItem("nip.username");
   localStorage.removeItem("nip.gameId");
@@ -222,6 +230,7 @@ async function refreshGame() {
   }
   try {
     state.status = await api(`/api/game/${encodeURIComponent(state.gameId)}/status`, { quiet: true });
+    loadStoredVote();
     await loadPhaseData();
     renderStage();
   } catch (error) {
@@ -414,9 +423,9 @@ function statRow() {
 function answerChoices() {
   if (state.answers.length === 0) return `<p class="waiting">Answers are not available yet.</p>`;
   return `<div class="answers">${state.answers.map((answer) => `
-    <article class="answer-card">
-      <div><strong>${escapeHTML(answer.label || "?")}</strong><p>${escapeHTML(answer.answer || "")}</p>${answer.username ? `<small>${escapeHTML(answer.username)}</small>` : ""}</div>
-      <button data-vote="${escapeAttr(answer.answerUUID)}" ${busyAttr()}>Vote</button>
+    <article class="answer-card ${isStoredVote(answer.answerUUID) ? "selected-vote" : ""}">
+      <div><strong>${escapeHTML(answer.label || "?")}</strong>${isStoredVote(answer.answerUUID) ? voteLabel() : ""}<p>${escapeHTML(answer.answer || "")}</p>${answer.username ? `<small>${escapeHTML(answer.username)}</small>` : ""}</div>
+      <button data-vote="${escapeAttr(answer.answerUUID)}" ${busyAttr()}>${isStoredVote(answer.answerUUID) ? "Your vote" : "Vote"}</button>
     </article>
   `).join("")}</div>`;
 }
@@ -426,8 +435,8 @@ function revealedAnswers() {
   return `<div class="answers">${state.revealed.map((answer) => {
     const votes = (answer.votes || []).map((vote) => vote.username).join(", ") || "no votes";
     return `
-      <article class="answer-card revealed">
-        <div><strong>${escapeHTML(answer.label || "?")} by ${escapeHTML(answer.username || "unknown")}</strong><p>${escapeHTML(answer.answer || "")}</p><small>Votes: ${escapeHTML(votes)}</small></div>
+      <article class="answer-card revealed ${isStoredVote(answer.answerUUID) ? "selected-vote" : ""}">
+        <div><strong>${escapeHTML(answer.label || "?")} by ${escapeHTML(answer.username || "unknown")}</strong>${isStoredVote(answer.answerUUID) ? voteLabel() : ""}<p>${escapeHTML(answer.answer || "")}</p><small>Votes: ${escapeHTML(votes)}</small></div>
       </article>
     `;
   }).join("")}</div>`;
@@ -464,6 +473,10 @@ function logoutButton() {
 
 function copyLinkButton() {
   return `<button id="copy-link" type="button">Copy invite link</button>`;
+}
+
+function voteLabel() {
+  return `<span class="vote-label">Your vote</span>`;
 }
 
 function detailsMenu(parts) {
@@ -521,6 +534,31 @@ function isOwner() {
 function canLeadRound() {
   const status = state.status || {};
   return status.gameMasterUUID === state.userUUID || status.roundMasterUUID === state.userUUID;
+}
+
+function loadStoredVote() {
+  state.votedAnswerUUID = localStorage.getItem(voteStorageKey()) || "";
+}
+
+function setStoredVote(answerUUID) {
+  state.votedAnswerUUID = answerUUID || "";
+  if (state.votedAnswerUUID) {
+    localStorage.setItem(voteStorageKey(), state.votedAnswerUUID);
+  }
+}
+
+function clearStoredVote() {
+  localStorage.removeItem(voteStorageKey());
+  state.votedAnswerUUID = "";
+}
+
+function voteStorageKey() {
+  const round = (state.status || {}).round || 0;
+  return `nip.vote.${state.gameId}.${state.userUUID}.${round}`;
+}
+
+function isStoredVote(answerUUID) {
+  return Boolean(answerUUID && state.votedAnswerUUID && answerUUID === state.votedAnswerUUID);
 }
 
 function fieldValue(id) {
