@@ -56,7 +56,8 @@ func main() {
 	swagger.Servers = openapi3.Servers{{URL: cfg.APIBaseURL}}
 
 	validator := ginmiddleware.OapiRequestValidatorWithOptions(swagger, &ginmiddleware.Options{
-		ErrorHandler: validationErrorHandler,
+		ErrorHandler:          validationErrorHandler,
+		SilenceServersWarning: true,
 		Options: openapi3filter.Options{
 			AuthenticationFunc: middlewares.SessionAuthenticator,
 		},
