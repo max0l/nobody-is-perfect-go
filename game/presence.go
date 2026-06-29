@@ -144,6 +144,28 @@ func (g *Games) removePlayer(userID uuid.UUID) {
 	}
 }
 
+func (s *Service) leaveOtherGamesLocked(userID uuid.UUID, exceptGameID string) {
+	for gameID, game := range s.games {
+		if gameID == exceptGameID {
+			continue
+		}
+		if _, isPlayer := game.players[userID]; !isPlayer {
+			continue
+		}
+
+		wasOwner := game.gameOwner == userID
+		game.removePlayer(userID)
+		if len(game.players) == 0 {
+			delete(s.games, gameID)
+			continue
+		}
+		if wasOwner {
+			game.gameOwner = game.usersByPlace[0]
+		}
+		game.ensureRoundMaster()
+	}
+}
+
 func (g *Games) rebuildPlaces() {
 	g.placeByUser = make(map[uuid.UUID]int, len(g.usersByPlace))
 	for index, userID := range g.usersByPlace {

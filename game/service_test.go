@@ -143,6 +143,119 @@ func TestJoinGameAppendsPlayerToOrder(t *testing.T) {
 	}
 }
 
+func TestJoinGameMovesPlayerOutOfPreviousGame(t *testing.T) {
+	service := NewService()
+	ownerName := "owner"
+	owner, err := service.CreateUser(&ownerName)
+	if err != nil {
+		t.Fatalf("CreateUser owner returned error: %v", err)
+	}
+	firstGameID, err := service.CreateGame(*owner.GetUserToken())
+	if err != nil {
+		t.Fatalf("CreateGame first returned error: %v", err)
+	}
+	playerName := "player"
+	player, err := service.CreateUser(&playerName)
+	if err != nil {
+		t.Fatalf("CreateUser player returned error: %v", err)
+	}
+	if err := service.JoinGame(firstGameID, *player.GetUserToken()); err != nil {
+		t.Fatalf("JoinGame first returned error: %v", err)
+	}
+	secondOwnerName := "second-owner"
+	secondOwner, err := service.CreateUser(&secondOwnerName)
+	if err != nil {
+		t.Fatalf("CreateUser second owner returned error: %v", err)
+	}
+	secondGameID, err := service.CreateGame(*secondOwner.GetUserToken())
+	if err != nil {
+		t.Fatalf("CreateGame second returned error: %v", err)
+	}
+
+	if err := service.JoinGame(secondGameID, *player.GetUserToken()); err != nil {
+		t.Fatalf("JoinGame second returned error: %v", err)
+	}
+
+	if _, err := service.GetStatus(firstGameID, *player.GetUserToken()); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("expected moved player to be forbidden in first game, got %v", err)
+	}
+	firstEntries, err := service.GetPlayOrder(firstGameID, *owner.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetPlayOrder first returned error: %v", err)
+	}
+	if len(firstEntries) != 1 || firstEntries[0].UserUUID != *owner.GetUserID() {
+		t.Fatalf("expected only owner in first game, got %+v", firstEntries)
+	}
+	secondEntries, err := service.GetPlayOrder(secondGameID, *player.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetPlayOrder second returned error: %v", err)
+	}
+	if len(secondEntries) != 2 {
+		t.Fatalf("expected player in second game, got %+v", secondEntries)
+	}
+}
+
+func TestCreateGameMovesOwnerOutOfPreviousGameAndTransfersOwnership(t *testing.T) {
+	service := NewService()
+	ownerName := "owner"
+	owner, err := service.CreateUser(&ownerName)
+	if err != nil {
+		t.Fatalf("CreateUser owner returned error: %v", err)
+	}
+	firstGameID, err := service.CreateGame(*owner.GetUserToken())
+	if err != nil {
+		t.Fatalf("CreateGame first returned error: %v", err)
+	}
+	playerName := "player"
+	player, err := service.CreateUser(&playerName)
+	if err != nil {
+		t.Fatalf("CreateUser player returned error: %v", err)
+	}
+	if err := service.JoinGame(firstGameID, *player.GetUserToken()); err != nil {
+		t.Fatalf("JoinGame returned error: %v", err)
+	}
+
+	secondGameID, err := service.CreateGame(*owner.GetUserToken())
+	if err != nil {
+		t.Fatalf("CreateGame second returned error: %v", err)
+	}
+
+	status, err := service.GetStatus(firstGameID, *player.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetStatus first returned error: %v", err)
+	}
+	if status.GameOwnerUUID != *player.GetUserID() {
+		t.Fatalf("expected ownership transferred to remaining player, got %s", status.GameOwnerUUID)
+	}
+	if _, err := service.GetStatus(firstGameID, *owner.GetUserToken()); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("expected moved owner to be forbidden in first game, got %v", err)
+	}
+	if _, err := service.GetStatus(secondGameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("expected owner in second game, got %v", err)
+	}
+}
+
+func TestCreateGameDeletesPreviousGameWhenNoPlayersRemain(t *testing.T) {
+	service := NewService()
+	ownerName := "owner"
+	owner, err := service.CreateUser(&ownerName)
+	if err != nil {
+		t.Fatalf("CreateUser owner returned error: %v", err)
+	}
+	firstGameID, err := service.CreateGame(*owner.GetUserToken())
+	if err != nil {
+		t.Fatalf("CreateGame first returned error: %v", err)
+	}
+
+	if _, err := service.CreateGame(*owner.GetUserToken()); err != nil {
+		t.Fatalf("CreateGame second returned error: %v", err)
+	}
+
+	if _, err := service.GetStatus(firstGameID, *owner.GetUserToken()); !errors.Is(err, ErrGameNotFound) {
+		t.Fatalf("expected previous single-player game to be deleted, got %v", err)
+	}
+}
+
 func TestSetPlayOrderReordersPlayers(t *testing.T) {
 	service, gameID, owner, player := serviceWithTwoPlayers(t)
 

@@ -62,6 +62,7 @@ func (s *Service) CreateGame(gameCreator uuid.UUID) (string, error) {
 	newGame.players[user.userID] = user
 	newGame.lastSeenByUser[user.userID] = now
 	newGame.appendPlayer(user.userID)
+	s.leaveOtherGamesLocked(user.userID, gameID)
 
 	return gameID, nil
 }

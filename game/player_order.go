@@ -33,9 +33,11 @@ func (s *Service) JoinGame(gameID string, token uuid.UUID) error {
 	}
 
 	if _, alreadyJoined := game.players[user.userID]; alreadyJoined {
+		s.leaveOtherGamesLocked(user.userID, gameID)
 		return nil
 	}
 
+	s.leaveOtherGamesLocked(user.userID, gameID)
 	game.players[user.userID] = user
 	game.lastSeenByUser[user.userID] = s.now()
 	game.allOfflineSince = time.Time{}
