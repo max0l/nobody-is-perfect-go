@@ -225,6 +225,10 @@ components:
           type: integer
           example: 3
           description: Get the number of answers received from the players
+        receivedVotes:
+          type: integer
+          example: 2
+          description: Get the number of votes received from eligible voters
         playerCount:
           type: integer
           example: 4

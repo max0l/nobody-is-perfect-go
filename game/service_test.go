@@ -291,6 +291,13 @@ func TestKickCurrentRoundMasterRotatesMaster(t *testing.T) {
 	if err := service.StartVoting(gameID, *owner.GetUserToken()); err != nil {
 		t.Fatalf("StartVoting returned error: %v", err)
 	}
+	answers, err := service.GetAnswers(gameID, *player.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetAnswers returned error: %v", err)
+	}
+	if err := service.VoteForAnswer(gameID, *player.GetUserToken(), answers[0].AnswerID); err != nil {
+		t.Fatalf("VoteForAnswer returned error: %v", err)
+	}
 	if _, err := service.RevealRound(gameID, *owner.GetUserToken()); err != nil {
 		t.Fatalf("RevealRound returned error: %v", err)
 	}
@@ -376,8 +383,22 @@ func TestVotingRevealAndNextRoundFlow(t *testing.T) {
 	if err := service.VoteForAnswer(gameID, *player.GetUserToken(), answers[0].AnswerID); err != nil {
 		t.Fatalf("VoteForAnswer first returned error: %v", err)
 	}
+	status, err := service.GetStatus(gameID, *player.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetStatus voting returned error: %v", err)
+	}
+	if status.ReceivedVotes != 1 {
+		t.Fatalf("expected one received vote, got %d", status.ReceivedVotes)
+	}
 	if err := service.VoteForAnswer(gameID, *player.GetUserToken(), answers[1].AnswerID); err != nil {
 		t.Fatalf("VoteForAnswer change returned error: %v", err)
+	}
+	status, err = service.GetStatus(gameID, *player.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetStatus changed vote returned error: %v", err)
+	}
+	if status.ReceivedVotes != 1 {
+		t.Fatalf("expected changed vote not to increase received votes, got %d", status.ReceivedVotes)
 	}
 
 	revealed, err := service.RevealRound(gameID, *owner.GetUserToken())
@@ -397,12 +418,69 @@ func TestVotingRevealAndNextRoundFlow(t *testing.T) {
 	if err := service.NextRound(gameID, *owner.GetUserToken()); err != nil {
 		t.Fatalf("NextRound returned error: %v", err)
 	}
-	status, err := service.GetStatus(gameID, *player.GetUserToken())
+	status, err = service.GetStatus(gameID, *player.GetUserToken())
 	if err != nil {
 		t.Fatalf("GetStatus returned error: %v", err)
 	}
 	if status.Round != 2 || status.RoundMasterUUID != *player.GetUserID() || status.RoundStatus != RoundStatusAnswering {
 		t.Fatalf("unexpected next round status: %+v", status)
+	}
+}
+
+func TestRevealRequiresAllEligiblePlayersToVote(t *testing.T) {
+	service := NewService()
+	ownerName := "owner"
+	owner, err := service.CreateUser(&ownerName)
+	if err != nil {
+		t.Fatalf("CreateUser owner returned error: %v", err)
+	}
+	gameID, err := service.CreateGame(*owner.GetUserToken())
+	if err != nil {
+		t.Fatalf("CreateGame returned error: %v", err)
+	}
+	playerName := "player"
+	player, err := service.CreateUser(&playerName)
+	if err != nil {
+		t.Fatalf("CreateUser player returned error: %v", err)
+	}
+	if err := service.JoinGame(gameID, *player.GetUserToken()); err != nil {
+		t.Fatalf("JoinGame player returned error: %v", err)
+	}
+	secondPlayerName := "second"
+	secondPlayer, err := service.CreateUser(&secondPlayerName)
+	if err != nil {
+		t.Fatalf("CreateUser second player returned error: %v", err)
+	}
+	if err := service.JoinGame(gameID, *secondPlayer.GetUserToken()); err != nil {
+		t.Fatalf("JoinGame second player returned error: %v", err)
+	}
+	if err := service.StartGame(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("StartGame returned error: %v", err)
+	}
+	for _, user := range []*User{owner, player, secondPlayer} {
+		answer := *user.GetUserUsername() + " answer"
+		if err := service.SendAnswer(gameID, *user.GetUserToken(), &answer); err != nil {
+			t.Fatalf("SendAnswer returned error: %v", err)
+		}
+	}
+	if err := service.StartVoting(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("StartVoting returned error: %v", err)
+	}
+	answers, err := service.GetAnswers(gameID, *player.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetAnswers returned error: %v", err)
+	}
+	if err := service.VoteForAnswer(gameID, *player.GetUserToken(), answers[0].AnswerID); err != nil {
+		t.Fatalf("VoteForAnswer player returned error: %v", err)
+	}
+	if _, err := service.RevealRound(gameID, *owner.GetUserToken()); !errors.Is(err, ErrInvalidRound) {
+		t.Fatalf("expected ErrInvalidRound before all votes, got %v", err)
+	}
+	if err := service.VoteForAnswer(gameID, *secondPlayer.GetUserToken(), answers[0].AnswerID); err != nil {
+		t.Fatalf("VoteForAnswer second player returned error: %v", err)
+	}
+	if _, err := service.RevealRound(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("RevealRound returned error after all votes: %v", err)
 	}
 }
 
@@ -449,6 +527,9 @@ func TestAnswersAreRoundScopedAndReaderSeesAuthors(t *testing.T) {
 		if answer.UserUUID != uuid.Nil || answer.Username != "" {
 			t.Fatalf("expected non-reader answer to hide author: %+v", answer)
 		}
+	}
+	if err := service.VoteForAnswer(gameID, *player.GetUserToken(), playerAnswers[0].AnswerID); err != nil {
+		t.Fatalf("VoteForAnswer returned error: %v", err)
 	}
 
 	if _, err := service.RevealRound(gameID, *owner.GetUserToken()); err != nil {

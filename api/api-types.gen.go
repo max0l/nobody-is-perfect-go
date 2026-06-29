@@ -86,7 +86,10 @@ type GameStatusResponse struct {
 	PlayerCount    *int  `json:"playerCount,omitempty"`
 
 	// ReceivedAnswers Get the number of answers received from the players
-	ReceivedAnswers *int    `json:"receivedAnswers,omitempty"`
+	ReceivedAnswers *int `json:"receivedAnswers,omitempty"`
+
+	// ReceivedVotes Get the number of votes received from eligible voters
+	ReceivedVotes   *int    `json:"receivedVotes,omitempty"`
 	Round           *int    `json:"round,omitempty"`
 	RoundMasterUUID *UUID   `json:"roundMasterUUID,omitempty"`
 	RoundStatus     *string `json:"roundStatus,omitempty"`

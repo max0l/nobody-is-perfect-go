@@ -7,6 +7,7 @@ type StatusView struct {
 	Players         []PlayOrderEntry
 	GameOwnerUUID   uuid.UUID
 	ReceivedAnswers int
+	ReceivedVotes   int
 	PlayerCount     int
 	Round           int
 	RoundStatus     RoundStatus
@@ -75,6 +76,9 @@ func (s *Service) RevealRound(gameID string, token uuid.UUID) ([]RevealedAnswerV
 		return nil, ErrForbidden
 	}
 	if state.status != RoundStatusVoting && state.status != RoundStatusRevealed {
+		return nil, ErrInvalidRound
+	}
+	if state.status == RoundStatusVoting && len(state.votesByUser) < game.requiredVoteCount(state) {
 		return nil, ErrInvalidRound
 	}
 
@@ -152,6 +156,7 @@ func (s *Service) GetStatus(gameID string, token uuid.UUID) (StatusView, error) 
 		view.RoundStatus = state.status
 		view.RoundMasterUUID = state.roundMasterID
 		view.ReceivedAnswers = len(state.answersByUser)
+		view.ReceivedVotes = len(state.votesByUser)
 	}
 
 	return view, nil
@@ -163,4 +168,13 @@ func (g *Games) activeRoundState() (*round, error) {
 	}
 
 	return g.currentRoundState(), nil
+}
+
+func (g *Games) requiredVoteCount(state *round) int {
+	count := len(g.players)
+	if _, hasRoundMaster := g.players[state.roundMasterID]; hasRoundMaster {
+		count--
+	}
+
+	return count
 }

@@ -261,6 +261,7 @@ func (s *StrictServer) GetGameStatus(ctx context.Context, request GetGameStatusR
 	}
 	gameStatus := int(status.GameStatus)
 	receivedAnswers := status.ReceivedAnswers
+	receivedVotes := status.ReceivedVotes
 	playerCount := status.PlayerCount
 	round := status.Round
 	gameOwner := status.GameOwnerUUID
@@ -269,6 +270,7 @@ func (s *StrictServer) GetGameStatus(ctx context.Context, request GetGameStatusR
 		Users:           &users,
 		GameMasterUUID:  &gameOwner,
 		ReceivedAnswers: &receivedAnswers,
+		ReceivedVotes:   &receivedVotes,
 		PlayerCount:     &playerCount,
 		Round:           &round,
 	}
