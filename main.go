@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/max0l/nobody-is-perfect-go/api"
 	"github.com/max0l/nobody-is-perfect-go/config"
+	"github.com/max0l/nobody-is-perfect-go/frontend"
 	"github.com/max0l/nobody-is-perfect-go/game"
 	"github.com/max0l/nobody-is-perfect-go/middlewares"
 	ginmiddleware "github.com/oapi-codegen/gin-middleware"
@@ -37,6 +38,7 @@ func main() {
 	router.GET("/swagger/*filepath", gin.WrapH(
 		http.StripPrefix("/swagger/", http.FileServer(http.FS(swaggerUI))),
 	))
+	frontend.RegisterRoutes(router)
 
 	swagger, err := api.GetSwagger()
 	if err != nil {

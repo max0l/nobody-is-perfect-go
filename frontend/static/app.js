@@ -1,0 +1,507 @@
+const state = {
+  userUUID: localStorage.getItem("nip.userUUID") || "",
+  username: localStorage.getItem("nip.username") || "",
+  gameId: document.body.dataset.gameId || localStorage.getItem("nip.gameId") || "",
+  status: null,
+  answers: [],
+  revealed: [],
+  pollTimer: 0,
+  pingTimer: 0,
+  busy: false,
+};
+
+const stageCard = document.querySelector("#stage-card");
+const message = document.querySelector("#message");
+
+function init() {
+  bindGlobalEvents();
+  renderStage();
+  if (state.gameId && state.userUUID) {
+    enterGame(state.gameId, false);
+  }
+}
+
+function bindGlobalEvents() {
+  window.addEventListener("popstate", () => {
+    const match = location.pathname.match(/^\/game\/([^/]+)$/);
+    if (match) {
+      enterGame(decodeURIComponent(match[1]), true);
+      return;
+    }
+    state.gameId = "";
+    state.status = null;
+    stopTimers();
+    renderStage();
+  });
+}
+
+function bindStageEvents() {
+  const profileForm = document.querySelector("#profile-form");
+  if (profileForm) {
+    profileForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const username = fieldValue("username");
+      if (!username) return;
+      await withBusy(async () => {
+        const user = await api("/api/create/user", { method: "POST", body: { username } });
+        state.userUUID = user.userUUID || "";
+        state.username = username;
+        localStorage.setItem("nip.userUUID", state.userUUID);
+        localStorage.setItem("nip.username", username);
+        notice(`Session started for ${username}`);
+        if (state.gameId) {
+          renderStage("choose");
+        } else {
+          renderStage();
+        }
+      });
+    });
+  }
+
+  const createGame = document.querySelector("#create-game");
+  if (createGame) {
+    createGame.addEventListener("click", async () => {
+      await withBusy(async () => {
+        const game = await api("/api/create/game", { method: "POST" });
+        await enterGame(game.gameId, false);
+        notice(`Created game ${game.gameId}`);
+      });
+    });
+  }
+
+  const joinForm = document.querySelector("#join-form");
+  if (joinForm) {
+    joinForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const gameId = fieldValue("join-game-id");
+      if (!gameId) return;
+      await withBusy(async () => {
+        await api(`/api/join/${encodeURIComponent(gameId)}`, { method: "POST" });
+        await enterGame(gameId, false);
+        notice(`Joined game ${gameId}`);
+      });
+    });
+  }
+
+  const copyLink = document.querySelector("#copy-link");
+  if (copyLink) {
+    copyLink.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(`${location.origin}/game/${state.gameId}`);
+      notice("Invite link copied");
+    });
+  }
+
+  const answerForm = document.querySelector("#answer-form");
+  if (answerForm) {
+    answerForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const answer = fieldValue("answer");
+      if (!answer) return;
+      await withBusy(async () => {
+        await api(`/api/game/${encodeURIComponent(state.gameId)}/answers`, { method: "POST", body: { answer } });
+        notice("Answer sent");
+        await refreshGame();
+      });
+    });
+  }
+
+  document.querySelectorAll("[data-action]").forEach((button) => {
+    button.addEventListener("click", async () => runAction(button.dataset.action));
+  });
+
+  document.querySelectorAll("[data-vote]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      await withBusy(async () => {
+        await api(`/api/game/${encodeURIComponent(state.gameId)}/vote`, { method: "POST", body: { answerUUID: button.dataset.vote } });
+        notice("Vote recorded");
+        await refreshGame();
+      });
+    });
+  });
+}
+
+async function runAction(action) {
+  const actions = {
+    start: { path: "/start", message: "Game started" },
+    startVoting: { path: "/startVoting", message: "Voting started" },
+    reveal: { message: "Votes revealed", reveal: true },
+    next: { path: "/next", message: "Next round started", clearRound: true },
+    finish: { path: "/finish", message: "Game finished", stop: true },
+    home: { local: true },
+  };
+  const selected = actions[action];
+  if (!selected) return;
+
+  await withBusy(async () => {
+    if (selected.local) {
+      leaveGame();
+      return;
+    }
+    if (selected.reveal) {
+      await reveal(true);
+    } else {
+      await api(`/api/game/${encodeURIComponent(state.gameId)}${selected.path}`, { method: "POST" });
+    }
+    if (selected.clearRound) {
+      state.answers = [];
+      state.revealed = [];
+    }
+    if (selected.stop) stopTimers();
+    notice(selected.message);
+    await refreshGame();
+  });
+}
+
+async function enterGame(gameId, replace) {
+  state.gameId = gameId;
+  localStorage.setItem("nip.gameId", gameId);
+  if (!replace && location.pathname !== `/game/${gameId}`) {
+    history.pushState(null, "", `/game/${gameId}`);
+  }
+  renderStage("loading");
+  await refreshGame();
+  startTimers();
+}
+
+function leaveGame() {
+  state.gameId = "";
+  state.status = null;
+  state.answers = [];
+  state.revealed = [];
+  localStorage.removeItem("nip.gameId");
+  stopTimers();
+  if (location.pathname !== "/") history.pushState(null, "", "/");
+  renderStage();
+}
+
+function startTimers() {
+  stopTimers();
+  state.pollTimer = window.setInterval(refreshGame, 3000);
+  state.pingTimer = window.setInterval(() => {
+    api(`/api/game/${encodeURIComponent(state.gameId)}/ping`, { method: "POST", quiet: true }).catch(() => {});
+  }, 7000);
+}
+
+function stopTimers() {
+  clearInterval(state.pollTimer);
+  clearInterval(state.pingTimer);
+}
+
+async function refreshGame() {
+  if (!state.gameId || !state.userUUID) {
+    renderStage();
+    return;
+  }
+  try {
+    state.status = await api(`/api/game/${encodeURIComponent(state.gameId)}/status`, { quiet: true });
+    await loadPhaseData();
+    renderStage();
+  } catch (error) {
+    renderStage("error", error.message);
+  }
+}
+
+async function loadPhaseData() {
+  const roundStatus = currentRoundStatus();
+  if (["voting", "revealed"].includes(roundStatus)) {
+    try {
+      const data = await api(`/api/game/${encodeURIComponent(state.gameId)}/answers`, { quiet: true });
+      state.answers = data.answers || [];
+    } catch (_) {
+      state.answers = [];
+    }
+  }
+  if (roundStatus === "revealed") {
+    try {
+      const data = await api(`/api/game/${encodeURIComponent(state.gameId)}/reveal`, { quiet: true });
+      state.revealed = data.answers || [];
+    } catch (_) {
+      state.revealed = [];
+    }
+  }
+}
+
+async function reveal(sendTrigger) {
+  const method = sendTrigger ? "POST" : "GET";
+  const data = await api(`/api/game/${encodeURIComponent(state.gameId)}/reveal`, { method, quiet: !sendTrigger });
+  state.revealed = data.answers || [];
+  renderStage();
+}
+
+function renderStage(forcedStage, detail) {
+  const stage = forcedStage || resolveStage();
+  const renderers = {
+    profile: renderProfile,
+    choose: renderChooseGame,
+    loading: renderLoading,
+    lobby: renderLobby,
+    answering: renderAnswering,
+    voting: renderVoting,
+    reveal: renderReveal,
+    finished: renderFinished,
+    error: () => renderError(detail),
+  };
+  stageCard.innerHTML = renderers[stage]();
+  bindStageEvents();
+}
+
+function resolveStage() {
+  if (!state.userUUID) return "profile";
+  if (!state.gameId) return "choose";
+  if (!state.status) return "loading";
+  if (state.status.status === 2) return "finished";
+  const roundStatus = currentRoundStatus();
+  if (!state.status.round) return "lobby";
+  if (roundStatus === "voting") return "voting";
+  if (roundStatus === "revealed") return "reveal";
+  return "answering";
+}
+
+function renderProfile() {
+  return `
+    <p class="eyebrow">Step 1</p>
+    <h1>Nobody is Perfect</h1>
+    <p class="lead">Start with your player name. The secure session cookie is handled by the server.</p>
+    <form id="profile-form" class="stack">
+      <label>Your name<input id="username" autocomplete="nickname" required maxlength="64" placeholder="Ada" value="${escapeAttr(state.username)}"></label>
+      <button class="primary" type="submit" ${busyAttr()}>Start session</button>
+    </form>
+  `;
+}
+
+function renderChooseGame() {
+  const suggestedGame = state.gameId || "";
+  return `
+    <p class="eyebrow">Step 2</p>
+    <h1>Choose game</h1>
+    <p class="lead">Playing as <strong>${escapeHTML(state.username)}</strong>. Create a new table or join an invite.</p>
+    <button id="create-game" class="primary" ${busyAttr()}>Create game</button>
+    <details class="submenu" ${suggestedGame ? "open" : ""}>
+      <summary>Join existing game</summary>
+      <form id="join-form" class="stack submenu-content">
+        <label>Game ID<input id="join-game-id" autocomplete="off" placeholder="chug.value.funds" value="${escapeAttr(suggestedGame)}"></label>
+        <button type="submit" ${busyAttr()}>Join game</button>
+      </form>
+    </details>
+  `;
+}
+
+function renderLoading() {
+  return `
+    <p class="eyebrow">Loading</p>
+    <h1>${escapeHTML(state.gameId || "Game")}</h1>
+    <p class="lead">Fetching the current game stage.</p>
+  `;
+}
+
+function renderLobby() {
+  const status = state.status || {};
+  const isOwner = status.gameMasterUUID === state.userUUID;
+  return `
+    ${gameHeader("Lobby", "Invite players")}
+    <p class="lead">Share the game ID and wait for everyone to join.</p>
+    ${statRow()}
+    ${isOwner ? `<button class="primary" data-action="start" ${busyAttr()}>Start game</button>` : `<p class="waiting">Waiting for the host to start.</p>`}
+    ${detailsMenu([copyLinkButton(), playerList(), dangerActions(isOwner)])}
+  `;
+}
+
+function renderAnswering() {
+  const status = state.status || {};
+  const isRoundMaster = status.roundMasterUUID === state.userUUID;
+  const canLead = canLeadRound();
+  const primary = isRoundMaster
+    ? `<p class="waiting">You are the round master. Wait for the players, then start voting.</p>${canLead ? `<button class="primary" data-action="startVoting" ${busyAttr()}>Start voting</button>` : ""}`
+    : `<form id="answer-form" class="stack"><label>Your answer<textarea id="answer" rows="5" required placeholder="Write your best fake answer"></textarea></label><button class="primary" type="submit" ${busyAttr()}>Send answer</button></form>`;
+  return `
+    ${gameHeader(`Round ${status.round}`, "Answering")}
+    ${statRow()}
+    ${primary}
+    ${detailsMenu([playerList(), canLead && !isRoundMaster ? leaderActions("answering") : "", dangerActions(isOwner())])}
+  `;
+}
+
+function renderVoting() {
+  const status = state.status || {};
+  const isRoundMaster = status.roundMasterUUID === state.userUUID;
+  const canLead = canLeadRound();
+  const body = isRoundMaster
+    ? `<p class="waiting">You are the round master. Watch the votes come in, then reveal.</p>${canLead ? `<button class="primary" data-action="reveal" ${busyAttr()}>Reveal votes</button>` : ""}`
+    : answerChoices();
+  return `
+    ${gameHeader(`Round ${status.round}`, "Voting")}
+    ${statRow()}
+    ${body}
+    ${detailsMenu([playerList(), canLead && !isRoundMaster ? `<button data-action="reveal" ${busyAttr()}>Reveal votes</button>` : "", dangerActions(isOwner())])}
+  `;
+}
+
+function renderReveal() {
+  const canLead = canLeadRound();
+  return `
+    ${gameHeader(`Round ${(state.status || {}).round}`, "Reveal")}
+    ${revealedAnswers()}
+    ${canLead ? `<button class="primary" data-action="next" ${busyAttr()}>Next round</button>` : `<p class="waiting">Waiting for the next round.</p>`}
+    ${detailsMenu([statRow(), playerList(), dangerActions(isOwner())])}
+  `;
+}
+
+function renderFinished() {
+  return `
+    ${gameHeader("Finished", "Game over")}
+    <p class="lead">This game has ended.</p>
+    <button class="primary" data-action="home">Back to start</button>
+  `;
+}
+
+function renderError(detail) {
+  return `
+    <p class="eyebrow">Problem</p>
+    <h1>Could not load game</h1>
+    <p class="lead">${escapeHTML(detail || "Something went wrong.")}</p>
+    <button class="primary" data-action="home">Back to start</button>
+  `;
+}
+
+function gameHeader(label, title) {
+  return `
+    <p class="eyebrow">${escapeHTML(label)}</p>
+    <h1>${escapeHTML(title)}</h1>
+    <div class="game-code"><span>Game ID</span><strong>${escapeHTML(state.gameId)}</strong></div>
+  `;
+}
+
+function statRow() {
+  const status = state.status || {};
+  return `
+    <div class="stats">
+      <div><span>Players</span><strong>${status.playerCount || 0}</strong></div>
+      <div><span>Answers</span><strong>${status.receivedAnswers || 0}</strong></div>
+      <div><span>Votes</span><strong>${status.receivedVotes || 0}</strong></div>
+    </div>
+  `;
+}
+
+function answerChoices() {
+  if (state.answers.length === 0) return `<p class="waiting">Answers are not available yet.</p>`;
+  return `<div class="answers">${state.answers.map((answer) => `
+    <article class="answer-card">
+      <div><strong>${escapeHTML(answer.label || "?")}</strong><p>${escapeHTML(answer.answer || "")}</p>${answer.username ? `<small>${escapeHTML(answer.username)}</small>` : ""}</div>
+      <button data-vote="${escapeAttr(answer.answerUUID)}" ${busyAttr()}>Vote</button>
+    </article>
+  `).join("")}</div>`;
+}
+
+function revealedAnswers() {
+  if (state.revealed.length === 0) return `<p class="waiting">Reveal data is not available yet.</p>`;
+  return `<div class="answers">${state.revealed.map((answer) => {
+    const votes = (answer.votes || []).map((vote) => vote.username).join(", ") || "no votes";
+    return `
+      <article class="answer-card revealed">
+        <div><strong>${escapeHTML(answer.label || "?")} by ${escapeHTML(answer.username || "unknown")}</strong><p>${escapeHTML(answer.answer || "")}</p><small>Votes: ${escapeHTML(votes)}</small></div>
+      </article>
+    `;
+  }).join("")}</div>`;
+}
+
+function playerList() {
+  const status = state.status || {};
+  const users = status.users || [];
+  if (users.length === 0) return `<p class="muted">No players yet.</p>`;
+  return `<ol class="players">${users.map((player) => {
+    const flags = [];
+    if (player.userUUID === status.gameMasterUUID) flags.push("host");
+    if (player.userUUID === status.roundMasterUUID) flags.push("round master");
+    return `<li class="player"><span><strong>${escapeHTML(player.username || "Player")}</strong><small class="${player.online ? "online" : "offline"}">${player.online ? "online" : "offline"}</small></span><span class="badge">${escapeHTML(flags.join(" · ") || "player")}</span></li>`;
+  }).join("")}</ol>`;
+}
+
+function leaderActions(roundStatus) {
+  if (roundStatus === "answering") return `<button data-action="startVoting" ${busyAttr()}>Start voting</button>`;
+  return "";
+}
+
+function dangerActions(show) {
+  if (!show) return "";
+  return `<button class="danger" data-action="finish" ${busyAttr()}>Finish game</button>`;
+}
+
+function copyLinkButton() {
+  return `<button id="copy-link" type="button">Copy invite link</button>`;
+}
+
+function detailsMenu(parts) {
+  const content = parts.filter(Boolean).join("");
+  if (!content) return "";
+  return `<details class="submenu"><summary>More</summary><div class="submenu-content">${content}</div></details>`;
+}
+
+async function api(path, options = {}) {
+  const init = {
+    method: options.method || "GET",
+    credentials: "same-origin",
+    headers: {},
+  };
+  if (options.body) {
+    init.headers["Content-Type"] = "application/json";
+    init.body = JSON.stringify(options.body);
+  }
+  const response = await fetch(path, init);
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!response.ok) throw new Error(data.error || `Request failed with ${response.status}`);
+  return data;
+}
+
+async function withBusy(callback) {
+  if (state.busy) return;
+  state.busy = true;
+  renderStage();
+  try {
+    await callback();
+  } catch (error) {
+    notice(error.message);
+  } finally {
+    state.busy = false;
+    renderStage();
+  }
+}
+
+function notice(text) {
+  message.textContent = text;
+  message.hidden = false;
+  clearTimeout(notice.timer);
+  notice.timer = setTimeout(() => { message.hidden = true; }, 3500);
+}
+
+function currentRoundStatus() {
+  return (state.status || {}).roundStatus || "lobby";
+}
+
+function isOwner() {
+  return (state.status || {}).gameMasterUUID === state.userUUID;
+}
+
+function canLeadRound() {
+  const status = state.status || {};
+  return status.gameMasterUUID === state.userUUID || status.roundMasterUUID === state.userUUID;
+}
+
+function fieldValue(id) {
+  const field = document.querySelector(`#${id}`);
+  return field ? field.value.trim() : "";
+}
+
+function busyAttr() {
+  return state.busy ? "disabled" : "";
+}
+
+function escapeHTML(value) {
+  return String(value).replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
+}
+
+function escapeAttr(value) {
+  return escapeHTML(value);
+}
+
+init();
