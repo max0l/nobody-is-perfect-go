@@ -270,6 +270,7 @@ async function refreshGame() {
     await loadPhaseData();
     renderStage();
   } catch (error) {
+    if (isUnauthorized(error)) return;
     if (isGameNotFound(error)) {
       returnToChooseGame("Game is no longer available");
       return;
@@ -576,6 +577,10 @@ async function api(path, options = {}) {
   if (!response.ok) {
     const error = new Error(data.error || `Request failed with ${response.status}`);
     error.status = response.status;
+    if (isUnauthorized(error)) {
+      await discardInvalidSession();
+      error.handled = true;
+    }
     throw error;
   }
   return data;
@@ -588,7 +593,7 @@ async function withBusy(callback) {
   try {
     await callback();
   } catch (error) {
-    notice(error.message);
+    if (!error.handled) notice(error.message);
   } finally {
     state.busy = false;
     renderStage();
@@ -632,6 +637,16 @@ function returnToChooseGame(reason) {
 
 function isGameNotFound(error) {
   return error && error.status === 404;
+}
+
+function isUnauthorized(error) {
+  return error && error.status === 401;
+}
+
+async function discardInvalidSession() {
+  await fetch("/api/logout", { method: "POST", credentials: "same-origin" }).catch(() => {});
+  logoutUser();
+  notice("Session expired. Please start again.");
 }
 
 function needsEmergencyConfirmation(action) {
