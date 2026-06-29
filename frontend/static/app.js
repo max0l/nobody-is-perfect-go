@@ -395,14 +395,21 @@ function renderLoading() {
 function renderLobby() {
   const status = state.status || {};
   const isOwner = status.gameMasterUUID === state.userUUID;
+  const canStart = (status.playerCount || 0) >= 3;
   return `
     ${gameHeader("Lobby", "Invite players")}
     <p class="lead">Share the game ID and wait for everyone to join.</p>
     ${invitePanel()}
     ${statRow()}
-    ${isOwner ? `<button class="primary" data-action="start" ${busyAttr()}>Start game</button>` : `<p class="waiting">Waiting for the host to start.</p>`}
+    ${startGameControl(isOwner, canStart)}
     ${detailsMenu([playerList(), gameActions(isOwner)])}
   `;
+}
+
+function startGameControl(isOwner, canStart) {
+  if (!isOwner) return `<p class="waiting">Waiting for the host to start.</p>`;
+  if (!canStart) return `<button class="primary" type="button" disabled>Need 3 players to start</button><p class="waiting">Waiting for at least 3 players including the host.</p>`;
+  return `<button class="primary" data-action="start" ${busyAttr()}>Start game</button>`;
 }
 
 function renderAnswering() {

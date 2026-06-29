@@ -269,6 +269,10 @@ func (s *StrictServer) StartGame(ctx context.Context, request StartGameRequestOb
 			msg := ForbiddenError
 			return StartGame403JSONResponse{Error: &msg}, nil
 		}
+		if errors.Is(err, game.ErrNotEnoughPlayers) {
+			msg := NotEnoughPlayersError
+			return StartGame400JSONResponse{Error: &msg}, nil
+		}
 
 		msg := BadRequestError
 		return StartGame400JSONResponse{Error: &msg}, nil

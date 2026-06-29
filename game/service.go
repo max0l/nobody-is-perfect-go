@@ -20,6 +20,7 @@ const (
 	DefaultWordlistPath = "words.txt"
 	DefaultMaxGames     = 100
 	MaxUsernameLength   = 32
+	MinPlayersToStart   = 3
 )
 
 var (
@@ -35,6 +36,7 @@ var (
 	ErrCannotKickOwner  = errors.New("cannot kick game owner")
 	ErrPlayerNotFound   = errors.New("player does not exist")
 	ErrMaxGamesReached  = errors.New("max concurrent games reached")
+	ErrNotEnoughPlayers = errors.New("not enough players")
 )
 
 type ServiceOptions struct {

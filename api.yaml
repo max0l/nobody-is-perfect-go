@@ -35,6 +35,13 @@ components:
           type: string
           example: "Bad request, missing required fields"
 
+    StartGameBadRequestResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "At least 3 players are required to start a game"
+
     UnauthorizedResponse:
       type: object
       properties:
@@ -701,11 +708,11 @@ paths:
               schema:
                 $ref: "#/components/schemas/GameStartedResponse"
         '400':
-          description: Bad request, missing required fields
+          description: Bad request, including when fewer than 3 players have joined
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BadRequestResponse"
+                $ref: "#/components/schemas/StartGameBadRequestResponse"
         '401':
           description: Unauthorized
           content:

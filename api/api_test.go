@@ -379,12 +379,32 @@ func TestSetPlayOrderRequiresOwner(t *testing.T) {
 	}
 }
 
+func TestStartGameReturnsBadRequestWhenNotEnoughPlayers(t *testing.T) {
+	server, gameID, owner, _ := serverWithGameAndJoinedPlayer(t)
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+
+	response, err := server.StartGame(ownerCtx, StartGameRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("StartGame returned error: %v", err)
+	}
+	badRequest, ok := response.(StartGame400JSONResponse)
+	if !ok {
+		t.Fatalf("expected StartGame400JSONResponse, got %T", response)
+	}
+	if badRequest.Error == nil || *badRequest.Error != NotEnoughPlayersError {
+		t.Fatalf("expected error %q, got %v", NotEnoughPlayersError, badRequest.Error)
+	}
+}
+
 func TestAnswerEndpointShowsAuthorsOnlyToCurrentReader(t *testing.T) {
 	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
+	third := addAPIPlayer(t, server, gameID, "third")
 	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
 	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+	thirdCtx := context.WithValue(context.Background(), SessionCookieValueKey, third.UserToken.String())
 	ownerAnswer := "owner answer"
 	playerAnswer := "player answer"
+	thirdAnswer := "third answer"
 	if response, err := server.StartGame(ownerCtx, StartGameRequestObject{GameId: gameID}); err != nil {
 		t.Fatalf("StartGame returned error: %v", err)
 	} else if _, ok := response.(StartGame200JSONResponse); !ok {
@@ -401,14 +421,19 @@ func TestAnswerEndpointShowsAuthorsOnlyToCurrentReader(t *testing.T) {
 	} else if _, ok := response.(SendAnswer200JSONResponse); !ok {
 		t.Fatalf("expected SendAnswer200JSONResponse, got %T", response)
 	}
+	if response, err := server.SendAnswer(thirdCtx, SendAnswerRequestObject{GameId: gameID, Body: &SendAnswerJSONRequestBody{Answer: &thirdAnswer}}); err != nil {
+		t.Fatalf("SendAnswer third returned error: %v", err)
+	} else if _, ok := response.(SendAnswer200JSONResponse); !ok {
+		t.Fatalf("expected SendAnswer200JSONResponse, got %T", response)
+	}
 
 	readerResponse, err := server.GetAnswers(ownerCtx, GetAnswersRequestObject{GameId: gameID})
 	if err != nil {
 		t.Fatalf("GetAnswers reader returned error: %v", err)
 	}
 	readerAnswers := readerResponse.(GetAnswers200JSONResponse)
-	if readerAnswers.Answers == nil || len(*readerAnswers.Answers) != 2 {
-		t.Fatalf("expected 2 reader answers, got %v", readerAnswers.Answers)
+	if readerAnswers.Answers == nil || len(*readerAnswers.Answers) != 3 {
+		t.Fatalf("expected 3 reader answers, got %v", readerAnswers.Answers)
 	}
 	for _, answer := range *readerAnswers.Answers {
 		if answer.Label == nil || answer.AnswerUUID == nil || answer.UserUUID == nil || answer.Username == nil {
@@ -443,8 +468,10 @@ func TestAnswerEndpointShowsAuthorsOnlyToCurrentReader(t *testing.T) {
 
 func TestVotingRevealAndStatusEndpoints(t *testing.T) {
 	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
+	third := addAPIPlayer(t, server, gameID, "third")
 	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
 	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+	thirdCtx := context.WithValue(context.Background(), SessionCookieValueKey, third.UserToken.String())
 	if response, err := server.StartGame(ownerCtx, StartGameRequestObject{GameId: gameID}); err != nil {
 		t.Fatalf("StartGame returned error: %v", err)
 	} else if _, ok := response.(StartGame200JSONResponse); !ok {
@@ -452,11 +479,15 @@ func TestVotingRevealAndStatusEndpoints(t *testing.T) {
 	}
 	ownerAnswer := "owner answer"
 	playerAnswer := "player answer"
+	thirdAnswer := "third answer"
 	if _, err := server.SendAnswer(ownerCtx, SendAnswerRequestObject{GameId: gameID, Body: &SendAnswerJSONRequestBody{Answer: &ownerAnswer}}); err != nil {
 		t.Fatalf("SendAnswer owner returned error: %v", err)
 	}
 	if _, err := server.SendAnswer(playerCtx, SendAnswerRequestObject{GameId: gameID, Body: &SendAnswerJSONRequestBody{Answer: &playerAnswer}}); err != nil {
 		t.Fatalf("SendAnswer player returned error: %v", err)
+	}
+	if _, err := server.SendAnswer(thirdCtx, SendAnswerRequestObject{GameId: gameID, Body: &SendAnswerJSONRequestBody{Answer: &thirdAnswer}}); err != nil {
+		t.Fatalf("SendAnswer third returned error: %v", err)
 	}
 	statusResponse, err := server.GetGameStatus(playerCtx, GetGameStatusRequestObject{GameId: gameID})
 	if err != nil {
@@ -480,8 +511,8 @@ func TestVotingRevealAndStatusEndpoints(t *testing.T) {
 		t.Fatalf("GetAnswers returned error: %v", err)
 	}
 	answers := answersResponse.(GetAnswers200JSONResponse)
-	if answers.Answers == nil || len(*answers.Answers) != 2 {
-		t.Fatalf("expected 2 answers, got %+v", answers.Answers)
+	if answers.Answers == nil || len(*answers.Answers) != 3 {
+		t.Fatalf("expected 3 answers, got %+v", answers.Answers)
 	}
 	masterVoteResponse, err := server.VoteForAnswer(ownerCtx, VoteForAnswerRequestObject{GameId: gameID, Body: &VoteForAnswerJSONRequestBody{AnswerUUID: (*answers.Answers)[0].AnswerUUID}})
 	if err != nil {
@@ -495,21 +526,26 @@ func TestVotingRevealAndStatusEndpoints(t *testing.T) {
 	} else if _, ok := response.(VoteForAnswer200JSONResponse); !ok {
 		t.Fatalf("expected VoteForAnswer200JSONResponse, got %T", response)
 	}
+	if response, err := server.VoteForAnswer(thirdCtx, VoteForAnswerRequestObject{GameId: gameID, Body: &VoteForAnswerJSONRequestBody{AnswerUUID: (*answers.Answers)[0].AnswerUUID}}); err != nil {
+		t.Fatalf("VoteForAnswer third returned error: %v", err)
+	} else if _, ok := response.(VoteForAnswer200JSONResponse); !ok {
+		t.Fatalf("expected VoteForAnswer200JSONResponse, got %T", response)
+	}
 	statusResponse, err = server.GetGameStatus(playerCtx, GetGameStatusRequestObject{GameId: gameID})
 	if err != nil {
 		t.Fatalf("GetGameStatus after vote returned error: %v", err)
 	}
 	status = statusResponse.(GetGameStatus200JSONResponse)
-	if status.ReceivedVotes == nil || *status.ReceivedVotes != 1 {
-		t.Fatalf("expected one received vote, got %+v", status.ReceivedVotes)
+	if status.ReceivedVotes == nil || *status.ReceivedVotes != 2 {
+		t.Fatalf("expected two received votes, got %+v", status.ReceivedVotes)
 	}
 	triggerResponse, err := server.TriggerReveal(ownerCtx, TriggerRevealRequestObject{GameId: gameID})
 	if err != nil {
 		t.Fatalf("TriggerReveal returned error: %v", err)
 	}
 	revealed := triggerResponse.(TriggerReveal200JSONResponse)
-	if revealed.Answers == nil || len(*revealed.Answers) != 2 {
-		t.Fatalf("expected 2 revealed answers, got %+v", revealed.Answers)
+	if revealed.Answers == nil || len(*revealed.Answers) != 3 {
+		t.Fatalf("expected 3 revealed answers, got %+v", revealed.Answers)
 	}
 	voteCount := 0
 	for _, answer := range *revealed.Answers {
@@ -517,8 +553,8 @@ func TestVotingRevealAndStatusEndpoints(t *testing.T) {
 			voteCount += len(*answer.Votes)
 		}
 	}
-	if voteCount != 1 {
-		t.Fatalf("expected one revealed vote, got %d", voteCount)
+	if voteCount != 2 {
+		t.Fatalf("expected two revealed votes, got %d", voteCount)
 	}
 	if response, err := server.NextRound(ownerCtx, NextRoundRequestObject{GameId: gameID}); err != nil {
 		t.Fatalf("NextRound returned error: %v", err)
@@ -757,4 +793,24 @@ func serverWithGameAndJoinedPlayer(t *testing.T) (*StrictServer, string, CreateU
 	}
 
 	return server, gameID, owner, player
+}
+
+func addAPIPlayer(t *testing.T, server *StrictServer, gameID string, username string) CreateUser201JSONResponse {
+	t.Helper()
+
+	playerResponse, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &username}})
+	if err != nil {
+		t.Fatalf("CreateUser %s returned error: %v", username, err)
+	}
+	player := playerResponse.(CreateUser201JSONResponse)
+	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+	joinResponse, err := server.JoinGame(playerCtx, JoinGameRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("JoinGame %s returned error: %v", username, err)
+	}
+	if _, ok := joinResponse.(JoinGame200JSONResponse); !ok {
+		t.Fatalf("expected JoinGame200JSONResponse, got %T", joinResponse)
+	}
+
+	return player
 }

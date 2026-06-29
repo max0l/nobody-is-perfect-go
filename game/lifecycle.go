@@ -32,6 +32,9 @@ func (s *Service) StartGame(gameID string, token uuid.UUID) error {
 	if game.gameStatus != GameStatusCreated || len(game.usersByPlace) == 0 {
 		return ErrInvalidRound
 	}
+	if len(game.players) < MinPlayersToStart {
+		return ErrNotEnoughPlayers
+	}
 
 	game.gameStatus = GameStatusStarted
 	game.startNextRound()

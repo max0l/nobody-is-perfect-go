@@ -158,6 +158,11 @@ type SetPlayOrderRequest struct {
 	} `json:"playOrder,omitempty"`
 }
 
+// StartGameBadRequestResponse defines model for StartGameBadRequestResponse.
+type StartGameBadRequestResponse struct {
+	Error *string `json:"error,omitempty"`
+}
+
 // SystemStatusResponse defines model for SystemStatusResponse.
 type SystemStatusResponse struct {
 	Games         *int `json:"games,omitempty"`
