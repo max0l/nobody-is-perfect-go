@@ -1,16 +1,43 @@
 :root {
-  color-scheme: light;
-  --bg: #f5eee4;
-  --card: #fffaf1;
-  --ink: #211810;
-  --muted: #75685b;
-  --line: #dfcfbb;
-  --accent: #b4412c;
-  --accent-dark: #7d2d21;
-  --good: #2f7d4a;
-  --bad: #9e2f2f;
-  --soft: #efe0cc;
-  --shadow: 0 1.25rem 3.5rem rgb(64 38 19 / 14%);
+  color-scheme: dark;
+  --bg: #0f1218;
+  --bg-glow: #552516;
+  --card: #171b24;
+  --surface: #202633;
+  --surface-strong: #293141;
+  --ink: #f6efe5;
+  --muted: #b7aa9b;
+  --line: #3b4456;
+  --accent: #e56b4e;
+  --accent-dark: #ff9a7c;
+  --good: #56b879;
+  --bad: #d85d5d;
+  --soft: #303847;
+  --button: #343c4d;
+  --button-ink: #fff7ed;
+  --shadow: 0 1.25rem 3.5rem rgb(0 0 0 / 45%);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+    --bg: #f5eee4;
+    --bg-glow: #ffd9a8;
+    --card: #fffaf1;
+    --surface: #fffdf8;
+    --surface-strong: #fff8ec;
+    --ink: #211810;
+    --muted: #75685b;
+    --line: #dfcfbb;
+    --accent: #b4412c;
+    --accent-dark: #7d2d21;
+    --good: #2f7d4a;
+    --bad: #9e2f2f;
+    --soft: #efe0cc;
+    --button: #3c342d;
+    --button-ink: white;
+    --shadow: 0 1.25rem 3.5rem rgb(64 38 19 / 14%);
+  }
 }
 
 * { box-sizing: border-box; }
@@ -18,7 +45,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(circle at top left, #ffd9a8 0, transparent 18rem), var(--bg);
+  background: radial-gradient(circle at top left, var(--bg-glow) 0, transparent 18rem), var(--bg);
   color: var(--ink);
   font: 1rem/1.5 Georgia, "Times New Roman", serif;
 }
@@ -31,8 +58,8 @@ button {
   border: 0;
   border-radius: 999px;
   padding: 0.8rem 1rem;
-  background: #3c342d;
-  color: white;
+  background: var(--button);
+  color: var(--button-ink);
   cursor: pointer;
   font-weight: 800;
 }
@@ -46,7 +73,7 @@ input, textarea {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 1rem;
-  background: #fffdf8;
+  background: var(--surface);
   color: var(--ink);
   padding: 0.9rem 1rem;
 }
@@ -67,7 +94,7 @@ p { margin: 0; }
 
 .card {
   width: 100%;
-  background: color-mix(in srgb, var(--card) 96%, white);
+  background: color-mix(in srgb, var(--card) 96%, var(--surface-strong));
   border: 1px solid var(--line);
   border-radius: 1.35rem;
   box-shadow: var(--shadow);
@@ -102,7 +129,7 @@ p { margin: 0; }
   border: 2px dashed var(--accent);
   border-radius: 1rem;
   padding: 0.8rem 0.9rem;
-  background: #fffdf8;
+  background: var(--surface);
 }
 
 .game-code span, .stats span {
@@ -129,7 +156,7 @@ p { margin: 0; }
   border: 1px solid var(--line);
   border-radius: 1rem;
   padding: 0.75rem;
-  background: #fffdf8;
+  background: var(--surface);
 }
 
 .stats strong {
@@ -170,7 +197,7 @@ p { margin: 0; }
   gap: 0.75rem;
   border: 1px solid var(--line);
   border-radius: 1rem;
-  background: #fffdf8;
+  background: var(--surface);
   padding: 0.85rem;
 }
 
@@ -199,7 +226,7 @@ p { margin: 0; }
 .answer-card small { color: var(--muted); }
 .answer-card.selected-vote {
   border-color: var(--good);
-  background: color-mix(in srgb, var(--good) 10%, #fffdf8);
+  background: color-mix(in srgb, var(--good) 14%, var(--surface));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--good) 70%, transparent);
 }
 
@@ -223,8 +250,8 @@ p { margin: 0; }
   z-index: 10;
   margin: 0;
   border-radius: 1rem;
-  background: #211810;
-  color: white;
+  background: var(--ink);
+  color: var(--bg);
   padding: 0.9rem 1rem;
   box-shadow: var(--shadow);
 }
