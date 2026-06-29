@@ -178,6 +178,7 @@ async function enterGame(gameId, replace) {
   }
   renderStage("loading");
   await refreshGame();
+  if (!state.gameId) return;
   loadStoredVote();
   startTimers();
 }
@@ -232,10 +233,18 @@ async function refreshGame() {
   }
   try {
     state.status = await api(`/api/game/${encodeURIComponent(state.gameId)}/status`, { quiet: true });
+    if (state.status.status === 2) {
+      returnToChooseGame("Game finished");
+      return;
+    }
     loadStoredVote();
     await loadPhaseData();
     renderStage();
   } catch (error) {
+    if (isGameNotFound(error)) {
+      returnToChooseGame("Game is no longer available");
+      return;
+    }
     renderStage("error", error.message);
   }
 }
@@ -246,7 +255,8 @@ async function loadPhaseData() {
     try {
       const data = await api(`/api/game/${encodeURIComponent(state.gameId)}/answers`, { quiet: true });
       state.answers = data.answers || [];
-    } catch (_) {
+    } catch (error) {
+      if (isGameNotFound(error)) throw error;
       state.answers = [];
     }
   }
@@ -254,7 +264,8 @@ async function loadPhaseData() {
     try {
       const data = await api(`/api/game/${encodeURIComponent(state.gameId)}/reveal`, { quiet: true });
       state.revealed = data.answers || [];
-    } catch (_) {
+    } catch (error) {
+      if (isGameNotFound(error)) throw error;
       state.revealed = [];
     }
   }
@@ -288,7 +299,6 @@ function resolveStage() {
   if (!state.userUUID) return "profile";
   if (!state.gameId) return "choose";
   if (!state.status) return "loading";
-  if (state.status.status === 2) return "finished";
   const roundStatus = currentRoundStatus();
   if (!state.status.round) return "lobby";
   if (roundStatus === "voting") return "voting";
@@ -500,7 +510,11 @@ async function api(path, options = {}) {
   const response = await fetch(path, init);
   const text = await response.text();
   const data = text ? JSON.parse(text) : {};
-  if (!response.ok) throw new Error(data.error || `Request failed with ${response.status}`);
+  if (!response.ok) {
+    const error = new Error(data.error || `Request failed with ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
   return data;
 }
 
@@ -536,6 +550,24 @@ function isOwner() {
 function canLeadRound() {
   const status = state.status || {};
   return status.gameMasterUUID === state.userUUID || status.roundMasterUUID === state.userUUID;
+}
+
+function returnToChooseGame(reason) {
+  clearStoredVote();
+  state.gameId = "";
+  state.status = null;
+  state.answers = [];
+  state.revealed = [];
+  state.votedAnswerUUID = "";
+  localStorage.removeItem("nip.gameId");
+  stopTimers();
+  if (location.pathname !== "/") history.pushState(null, "", "/");
+  renderStage();
+  if (reason) notice(reason);
+}
+
+function isGameNotFound(error) {
+  return error && error.status === 404;
 }
 
 function needsEmergencyConfirmation(action) {
