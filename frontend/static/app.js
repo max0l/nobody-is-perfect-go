@@ -505,7 +505,7 @@ function systemStatusWidget() {
   const status = state.systemStatus;
   return `
     <section class="system-status" aria-label="Server statistics">
-      <button id="system-status" class="info-button" type="button" ${busyAttr()}>i Server stats</button>
+      <button id="system-status" class="info-button" type="button" ${busyAttr()}>Server stats</button>
       ${status ? `
         <div class="system-status-panel">
           <div><span>Games</span><strong>${status.games || 0}</strong></div>
