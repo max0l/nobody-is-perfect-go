@@ -2,9 +2,9 @@ package game
 
 import "github.com/google/uuid"
 
-const maxScrambledAnswers = 4
+const maxScrambledAnswers = 6
 
-var answerLabels = []string{"A", "B", "C", "D"}
+var answerLabels = []string{"A", "B", "C", "D", "E", "F"}
 
 type AnswerView struct {
 	Label    string

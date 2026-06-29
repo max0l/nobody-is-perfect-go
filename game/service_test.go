@@ -709,10 +709,10 @@ func TestAnswersAreRoundScopedAndReaderSeesAuthors(t *testing.T) {
 	}
 }
 
-func TestAnswersAreLimitedToLabelsAThroughD(t *testing.T) {
+func TestAnswersAreLimitedToLabelsAThroughF(t *testing.T) {
 	service := NewService()
-	users := make([]*User, 0, 5)
-	for i := 0; i < 5; i++ {
+	users := make([]*User, 0, 7)
+	for i := 0; i < 7; i++ {
 		username := string(rune('a' + i))
 		user, err := service.CreateUser(&username)
 		if err != nil {
@@ -744,8 +744,8 @@ func TestAnswersAreLimitedToLabelsAThroughD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetAnswers returned error: %v", err)
 	}
-	if len(answers) != 4 {
-		t.Fatalf("expected 4 displayed answers, got %d", len(answers))
+	if len(answers) != 6 {
+		t.Fatalf("expected 6 displayed answers, got %d", len(answers))
 	}
 	for i, answer := range answers {
 		if answer.Label != answerLabels[i] {
