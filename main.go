@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/max0l/nobody-is-perfect-go/game"
 	"github.com/max0l/nobody-is-perfect-go/middlewares"
 	ginmiddleware "github.com/oapi-codegen/gin-middleware"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -27,6 +29,7 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("load config")
 	}
+	configureLogging(cfg.LogFormat)
 	server := api.NewServerWithGameService(game.NewServiceWithOptions(game.ServiceOptions{
 		WordlistPath:       cfg.WordlistPath,
 		MaxConcurrentGames: cfg.MaxConcurrentGames,
@@ -66,6 +69,17 @@ func main() {
 
 	log.Info().Str("addr", cfg.Addr()).Str("api_base_url", cfg.APIBaseURL).Int("max_concurrent_games", cfg.MaxConcurrentGames).Str("wordlist_path", cfg.WordlistPath).Msg("starting http server")
 	log.Fatal().Err(s.ListenAndServe()).Msg("http server stopped")
+}
+
+func configureLogging(format string) {
+	switch format {
+	case config.LogFormatText:
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, NoColor: true})
+	case config.LogFormatTextColor:
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, NoColor: false})
+	default:
+		log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
+	}
 }
 
 func validationErrorHandler(c *gin.Context, message string, statusCode int) {

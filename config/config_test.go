@@ -27,6 +27,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.APIBaseURL != "http://localhost:8080" {
 		t.Fatalf("expected default API base URL, got %q", cfg.APIBaseURL)
 	}
+	if cfg.LogFormat != DefaultLogFormat {
+		t.Fatalf("expected default log format %q, got %q", DefaultLogFormat, cfg.LogFormat)
+	}
 }
 
 func TestLoadDerivesAPIBaseURLFromHostAndPort(t *testing.T) {
@@ -75,5 +78,37 @@ func TestLoadRejectsInvalidMaxConcurrentGames(t *testing.T) {
 
 	if _, err := Load(); err == nil {
 		t.Fatal("expected invalid max concurrent games error")
+	}
+}
+
+func TestLoadUsesExplicitLogFormat(t *testing.T) {
+	t.Setenv(EnvLogFormat, "TEXT-COLOR")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	if cfg.LogFormat != LogFormatTextColor {
+		t.Fatalf("expected log format %q, got %q", LogFormatTextColor, cfg.LogFormat)
+	}
+}
+
+func TestLoadAcceptsTextLogFormat(t *testing.T) {
+	t.Setenv(EnvLogFormat, LogFormatText)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	if cfg.LogFormat != LogFormatText {
+		t.Fatalf("expected log format %q, got %q", LogFormatText, cfg.LogFormat)
+	}
+}
+
+func TestLoadRejectsInvalidLogFormat(t *testing.T) {
+	t.Setenv(EnvLogFormat, "xml")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("expected invalid log format error")
 	}
 }

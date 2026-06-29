@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -13,12 +14,18 @@ const (
 	DefaultPort               = 8080
 	DefaultMaxConcurrentGames = 100
 	DefaultWordlistPath       = "words.txt"
+	DefaultLogFormat          = LogFormatJSON
 
 	EnvHost               = "NIP_HOST"
 	EnvPort               = "NIP_PORT"
 	EnvMaxConcurrentGames = "NIP_MAX_CONCURRENT_GAMES"
 	EnvWordlistPath       = "NIP_WORDLIST_PATH"
 	EnvAPIBaseURL         = "NIP_API_BASE_URL"
+	EnvLogFormat          = "NIP_LOG_FORMAT"
+
+	LogFormatJSON      = "json"
+	LogFormatText      = "text"
+	LogFormatTextColor = "text-color"
 )
 
 type Config struct {
@@ -27,6 +34,7 @@ type Config struct {
 	MaxConcurrentGames int
 	WordlistPath       string
 	APIBaseURL         string
+	LogFormat          string
 }
 
 func Load() (Config, error) {
@@ -47,6 +55,10 @@ func Load() (Config, error) {
 	if err := validateURL(EnvAPIBaseURL, apiBaseURL); err != nil {
 		return Config{}, err
 	}
+	logFormat, err := getLogFormatEnv()
+	if err != nil {
+		return Config{}, err
+	}
 
 	return Config{
 		Host:               host,
@@ -54,6 +66,7 @@ func Load() (Config, error) {
 		MaxConcurrentGames: maxConcurrentGames,
 		WordlistPath:       wordlistPath,
 		APIBaseURL:         apiBaseURL,
+		LogFormat:          logFormat,
 	}, nil
 }
 
@@ -85,6 +98,16 @@ func getPositiveIntEnv(name string, fallback int) (int, error) {
 	}
 
 	return parsed, nil
+}
+
+func getLogFormatEnv() (string, error) {
+	value := strings.ToLower(getEnv(EnvLogFormat, DefaultLogFormat))
+	switch value {
+	case LogFormatJSON, LogFormatText, LogFormatTextColor:
+		return value, nil
+	default:
+		return "", fmt.Errorf("%s must be one of %s, %s, %s", EnvLogFormat, LogFormatJSON, LogFormatText, LogFormatTextColor)
+	}
 }
 
 func defaultAPIBaseURL(host string, port int) string {

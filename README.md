@@ -77,6 +77,7 @@ go run .
 | `NIP_API_BASE_URL` | Derived from host/port, normally `http://localhost:8080` | Public API base URL written into the OpenAPI server config for request validation. Set this when Docker/proxy host or port differs from the internal bind address. |
 | `NIP_MAX_CONCURRENT_GAMES` | `100` | Maximum number of active games. Creating another game returns `403 Forbidden`. |
 | `NIP_WORDLIST_PATH` | `words.txt` | Path to the word list used for generated game IDs. |
+| `NIP_LOG_FORMAT` | `json` | Log output format. Supported values: `json`, `text`, `text-color`. |
 
 ## Docker
 
@@ -176,13 +177,7 @@ Game endpoints that require authentication are protected by the OpenAPI `session
 
 ## Presence
 
-Players should call the ping endpoint periodically while they are active. The cadence does not need to be exact; it only needs to be comfortably below the offline timeout.
-
-```http
-POST /api/game/{gameId}/ping
-```
-
-Players are considered offline after 15 seconds without a ping. A game is discarded after all players have been offline for 60 seconds.
+Players are considered offline after 15 seconds without a status poll. A game is discarded after all players have been offline for 60 seconds.
 
 The game status and play-order responses include each player's `online` indicator.
 
