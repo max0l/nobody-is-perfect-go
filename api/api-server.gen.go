@@ -38,6 +38,9 @@ type ServerInterface interface {
 	// Finish the game
 	// (POST /api/game/{gameId}/finish)
 	FinishGame(c *gin.Context, gameId string)
+	// Leave a game
+	// (POST /api/game/{gameId}/leave)
+	LeaveGame(c *gin.Context, gameId string)
 	// Move to the next round in the game
 	// (POST /api/game/{gameId}/next)
 	NextRound(c *gin.Context, gameId string)
@@ -192,6 +195,32 @@ func (siw *ServerInterfaceWrapper) FinishGame(c *gin.Context) {
 	}
 
 	siw.Handler.FinishGame(c, gameId)
+}
+
+// LeaveGame operation middleware
+func (siw *ServerInterfaceWrapper) LeaveGame(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "gameId" -------------
+	var gameId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "gameId", c.Param("gameId"), &gameId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter gameId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(SessionCookieScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.LeaveGame(c, gameId)
 }
 
 // NextRound operation middleware
@@ -560,6 +589,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/game/:gameId/answers", wrapper.GetAnswers)
 	router.POST(options.BaseURL+"/api/game/:gameId/answers", wrapper.SendAnswer)
 	router.POST(options.BaseURL+"/api/game/:gameId/finish", wrapper.FinishGame)
+	router.POST(options.BaseURL+"/api/game/:gameId/leave", wrapper.LeaveGame)
 	router.POST(options.BaseURL+"/api/game/:gameId/next", wrapper.NextRound)
 	router.POST(options.BaseURL+"/api/game/:gameId/ping", wrapper.PingGame)
 	router.DELETE(options.BaseURL+"/api/game/:gameId/players/:userUUID", wrapper.KickPlayer)
@@ -807,6 +837,59 @@ func (response FinishGame403JSONResponse) VisitFinishGameResponse(w http.Respons
 type FinishGame404JSONResponse GameNotFoundResponse
 
 func (response FinishGame404JSONResponse) VisitFinishGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LeaveGameRequestObject struct {
+	GameId string `json:"gameId"`
+}
+
+type LeaveGameResponseObject interface {
+	VisitLeaveGameResponse(w http.ResponseWriter) error
+}
+
+type LeaveGame200JSONResponse GameLeftResponse
+
+func (response LeaveGame200JSONResponse) VisitLeaveGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LeaveGame400JSONResponse BadRequestResponse
+
+func (response LeaveGame400JSONResponse) VisitLeaveGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LeaveGame401JSONResponse UnauthorizedResponse
+
+func (response LeaveGame401JSONResponse) VisitLeaveGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LeaveGame403JSONResponse ForbiddenResponse
+
+func (response LeaveGame403JSONResponse) VisitLeaveGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LeaveGame404JSONResponse GameNotFoundResponse
+
+func (response LeaveGame404JSONResponse) VisitLeaveGameResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
 
@@ -1485,6 +1568,9 @@ type StrictServerInterface interface {
 	// Finish the game
 	// (POST /api/game/{gameId}/finish)
 	FinishGame(ctx context.Context, request FinishGameRequestObject) (FinishGameResponseObject, error)
+	// Leave a game
+	// (POST /api/game/{gameId}/leave)
+	LeaveGame(ctx context.Context, request LeaveGameRequestObject) (LeaveGameResponseObject, error)
 	// Move to the next round in the game
 	// (POST /api/game/{gameId}/next)
 	NextRound(ctx context.Context, request NextRoundRequestObject) (NextRoundResponseObject, error)
@@ -1678,6 +1764,33 @@ func (sh *strictHandler) FinishGame(ctx *gin.Context, gameId string) {
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(FinishGameResponseObject); ok {
 		if err := validResponse.VisitFinishGameResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LeaveGame operation middleware
+func (sh *strictHandler) LeaveGame(ctx *gin.Context, gameId string) {
+	var request LeaveGameRequestObject
+
+	request.GameId = gameId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.LeaveGame(ctx, request.(LeaveGameRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LeaveGame")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(LeaveGameResponseObject); ok {
+		if err := validResponse.VisitLeaveGameResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
@@ -2054,46 +2167,48 @@ func (sh *strictHandler) SetPlayOrder(ctx *gin.Context, gameId string) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

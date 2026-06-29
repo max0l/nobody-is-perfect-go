@@ -437,6 +437,67 @@ func TestKickPlayerRequiresOwnerAndCannotKickOwner(t *testing.T) {
 	}
 }
 
+func TestLeaveGameRemovesPlayer(t *testing.T) {
+	service, gameID, owner, player := serviceWithTwoPlayers(t)
+
+	if err := service.LeaveGame(gameID, *player.GetUserToken()); err != nil {
+		t.Fatalf("LeaveGame returned error: %v", err)
+	}
+
+	entries, err := service.GetPlayOrder(gameID, *owner.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetPlayOrder returned error: %v", err)
+	}
+	if len(entries) != 1 || entries[0].UserUUID != *owner.GetUserID() {
+		t.Fatalf("expected only owner after leave, got %+v", entries)
+	}
+	if _, err := service.GetStatus(gameID, *player.GetUserToken()); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("expected leaving player to be forbidden, got %v", err)
+	}
+}
+
+func TestLeaveGameTransfersOwnershipWhenOwnerLeaves(t *testing.T) {
+	service, gameID, owner, player := serviceWithTwoPlayers(t)
+
+	if err := service.LeaveGame(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("LeaveGame owner returned error: %v", err)
+	}
+
+	status, err := service.GetStatus(gameID, *player.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetStatus returned error: %v", err)
+	}
+	if status.GameOwnerUUID != *player.GetUserID() {
+		t.Fatalf("expected ownership transferred to player, got %s", status.GameOwnerUUID)
+	}
+	if status.PlayerCount != 1 {
+		t.Fatalf("expected one player after owner leaves, got %d", status.PlayerCount)
+	}
+}
+
+func TestLeaveGameDiscardsGameWhenLastPlayerLeaves(t *testing.T) {
+	service := NewService()
+	ownerName := "owner"
+	owner, err := service.CreateUser(&ownerName)
+	if err != nil {
+		t.Fatalf("CreateUser returned error: %v", err)
+	}
+	gameID, err := service.CreateGame(*owner.GetUserToken())
+	if err != nil {
+		t.Fatalf("CreateGame returned error: %v", err)
+	}
+
+	if err := service.LeaveGame(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("LeaveGame returned error: %v", err)
+	}
+	if service.games[gameID] != nil {
+		t.Fatal("expected game to be removed")
+	}
+	if _, err := service.GetStatus(gameID, *owner.GetUserToken()); !errors.Is(err, ErrGameNotFound) {
+		t.Fatalf("expected ErrGameNotFound after last player leaves, got %v", err)
+	}
+}
+
 func TestFinishGameDeletesGame(t *testing.T) {
 	service, gameID, owner, _ := serviceWithTwoPlayers(t)
 

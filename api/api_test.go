@@ -569,6 +569,72 @@ func TestFinishGameEndpointDeletesGameAndRequiresOwner(t *testing.T) {
 	}
 }
 
+func TestLeaveGameEndpointRemovesPlayer(t *testing.T) {
+	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+
+	response, err := server.LeaveGame(playerCtx, LeaveGameRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("LeaveGame returned error: %v", err)
+	}
+	if _, ok := response.(LeaveGame200JSONResponse); !ok {
+		t.Fatalf("expected LeaveGame200JSONResponse, got %T", response)
+	}
+
+	statusResponse, err := server.GetGameStatus(playerCtx, GetGameStatusRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetGameStatus leaving player returned error: %v", err)
+	}
+	if _, ok := statusResponse.(GetGameStatus403JSONResponse); !ok {
+		t.Fatalf("expected GetGameStatus403JSONResponse, got %T", statusResponse)
+	}
+
+	playOrderResponse, err := server.GetPlayOrder(ownerCtx, GetPlayOrderRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetPlayOrder returned error: %v", err)
+	}
+	playOrder := playOrderResponse.(GetPlayOrder200JSONResponse)
+	if playOrder.PlayOrder == nil || len(*playOrder.PlayOrder) != 1 || *(*playOrder.PlayOrder)[0].UserUUID != *owner.UserUUID {
+		t.Fatalf("expected only owner after leave, got %+v", playOrder.PlayOrder)
+	}
+}
+
+func TestLeaveGameEndpointTransfersOwnership(t *testing.T) {
+	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+
+	response, err := server.LeaveGame(ownerCtx, LeaveGameRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("LeaveGame owner returned error: %v", err)
+	}
+	if _, ok := response.(LeaveGame200JSONResponse); !ok {
+		t.Fatalf("expected LeaveGame200JSONResponse, got %T", response)
+	}
+
+	statusResponse, err := server.GetGameStatus(playerCtx, GetGameStatusRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetGameStatus returned error: %v", err)
+	}
+	status := statusResponse.(GetGameStatus200JSONResponse)
+	if status.GameMasterUUID == nil || *status.GameMasterUUID != *player.UserUUID {
+		t.Fatalf("expected ownership transferred to player, got %v", status.GameMasterUUID)
+	}
+}
+
+func TestLeaveGameEndpointReturnsUnauthorizedWithoutSession(t *testing.T) {
+	server, gameID, _, _ := serverWithGameAndJoinedPlayer(t)
+
+	response, err := server.LeaveGame(context.Background(), LeaveGameRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("LeaveGame returned error: %v", err)
+	}
+	if _, ok := response.(LeaveGame401JSONResponse); !ok {
+		t.Fatalf("expected LeaveGame401JSONResponse, got %T", response)
+	}
+}
+
 func serverWithGameAndJoinedPlayer(t *testing.T) (*StrictServer, string, CreateUser201JSONResponse, CreateUser201JSONResponse) {
 	t.Helper()
 

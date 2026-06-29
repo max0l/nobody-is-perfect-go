@@ -57,6 +57,32 @@ func (s *Service) KickPlayer(gameID string, token uuid.UUID, targetUserID uuid.U
 	return nil
 }
 
+func (s *Service) LeaveGame(gameID string, token uuid.UUID) error {
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+
+	game, user, err := s.gameAndUser(gameID, token)
+	if err != nil {
+		return err
+	}
+	if _, isPlayer := game.players[user.userID]; !isPlayer {
+		return ErrForbidden
+	}
+
+	wasOwner := game.gameOwner == user.userID
+	game.removePlayer(user.userID)
+	if len(game.players) == 0 {
+		delete(s.games, gameID)
+		return nil
+	}
+	if wasOwner {
+		game.gameOwner = game.usersByPlace[0]
+	}
+	game.ensureRoundMaster()
+
+	return nil
+}
+
 func (s *Service) discardExpiredGameLocked(gameID string, now time.Time) bool {
 	game := s.games[gameID]
 	if game == nil {

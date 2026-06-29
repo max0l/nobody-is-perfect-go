@@ -70,6 +70,11 @@ type GameFinishedResponse struct {
 	Message *string `json:"message,omitempty"`
 }
 
+// GameLeftResponse defines model for GameLeftResponse.
+type GameLeftResponse struct {
+	Message *string `json:"message,omitempty"`
+}
+
 // GameNotFoundResponse defines model for GameNotFoundResponse.
 type GameNotFoundResponse struct {
 	Error *string `json:"error,omitempty"`

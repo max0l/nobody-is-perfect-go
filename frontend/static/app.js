@@ -127,6 +127,7 @@ async function runAction(action) {
     reveal: { message: "Votes revealed", reveal: true },
     next: { path: "/next", message: "Next round started", clearRound: true },
     finish: { path: "/finish", message: "Game finished", stop: true },
+    leave: { path: "/leave", message: "Left game", leave: true },
     home: { local: true },
   };
   const selected = actions[action];
@@ -141,6 +142,11 @@ async function runAction(action) {
       await reveal(true);
     } else {
       await api(`/api/game/${encodeURIComponent(state.gameId)}${selected.path}`, { method: "POST" });
+    }
+    if (selected.leave) {
+      notice(selected.message);
+      leaveGame();
+      return;
     }
     if (selected.clearRound) {
       state.answers = [];
@@ -302,7 +308,7 @@ function renderLobby() {
     <p class="lead">Share the game ID and wait for everyone to join.</p>
     ${statRow()}
     ${isOwner ? `<button class="primary" data-action="start" ${busyAttr()}>Start game</button>` : `<p class="waiting">Waiting for the host to start.</p>`}
-    ${detailsMenu([copyLinkButton(), playerList(), dangerActions(isOwner)])}
+    ${detailsMenu([copyLinkButton(), playerList(), gameActions(isOwner)])}
   `;
 }
 
@@ -317,7 +323,7 @@ function renderAnswering() {
     ${gameHeader(`Round ${status.round}`, "Answering")}
     ${statRow()}
     ${primary}
-    ${detailsMenu([playerList(), canLead && !isRoundMaster ? leaderActions("answering") : "", dangerActions(isOwner())])}
+    ${detailsMenu([playerList(), canLead && !isRoundMaster ? leaderActions("answering") : "", gameActions(isOwner())])}
   `;
 }
 
@@ -332,7 +338,7 @@ function renderVoting() {
     ${gameHeader(`Round ${status.round}`, "Voting")}
     ${statRow()}
     ${body}
-    ${detailsMenu([playerList(), canLead && !isRoundMaster ? `<button data-action="reveal" ${busyAttr()}>Reveal votes</button>` : "", dangerActions(isOwner())])}
+    ${detailsMenu([playerList(), canLead && !isRoundMaster ? `<button data-action="reveal" ${busyAttr()}>Reveal votes</button>` : "", gameActions(isOwner())])}
   `;
 }
 
@@ -342,7 +348,7 @@ function renderReveal() {
     ${gameHeader(`Round ${(state.status || {}).round}`, "Reveal")}
     ${revealedAnswers()}
     ${canLead ? `<button class="primary" data-action="next" ${busyAttr()}>Next round</button>` : `<p class="waiting">Waiting for the next round.</p>`}
-    ${detailsMenu([statRow(), playerList(), dangerActions(isOwner())])}
+    ${detailsMenu([statRow(), playerList(), gameActions(isOwner())])}
   `;
 }
 
@@ -421,9 +427,11 @@ function leaderActions(roundStatus) {
   return "";
 }
 
-function dangerActions(show) {
-  if (!show) return "";
-  return `<button class="danger" data-action="finish" ${busyAttr()}>Finish game</button>`;
+function gameActions(showFinish) {
+  return `
+    <button data-action="leave" ${busyAttr()}>Leave game</button>
+    ${showFinish ? `<button class="danger" data-action="finish" ${busyAttr()}>Finish game</button>` : ""}
+  `;
 }
 
 function copyLinkButton() {

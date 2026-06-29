@@ -201,6 +201,13 @@ components:
           type: string
           example: "Player kicked successfully"
 
+    GameLeftResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Left the game successfully"
+
     GameStatusResponse:
       type: object
       properties:
@@ -556,6 +563,52 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PlayerKickedResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
+
+  /api/game/{gameId}/leave:
+    post:
+      summary: Leave a game
+      description: Removes the current user from the game. If the owner leaves, ownership transfers to the next player. Empty games are discarded.
+      operationId: leaveGame
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "chug.value.funds"
+      responses:
+        '200':
+          description: Left the game successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameLeftResponse"
         '400':
           description: Bad request, missing required fields
           content:

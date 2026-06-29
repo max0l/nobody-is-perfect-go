@@ -161,6 +161,35 @@ func (s *StrictServer) FinishGame(ctx context.Context, request FinishGameRequest
 	return FinishGame200JSONResponse{Message: &msg}, nil
 }
 
+func (s *StrictServer) LeaveGame(ctx context.Context, request LeaveGameRequestObject) (LeaveGameResponseObject, error) {
+	token, ok := sessionToken(ctx)
+	if !ok {
+		msg := UnauthorizedError
+		return LeaveGame401JSONResponse{Error: &msg}, nil
+	}
+
+	if err := s.gameService.LeaveGame(request.GameId, token); err != nil {
+		if errors.Is(err, game.ErrGameNotFound) {
+			msg := GameNotFoundError
+			return LeaveGame404JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrUserNotFound) {
+			msg := UnauthorizedError
+			return LeaveGame401JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrForbidden) {
+			msg := ForbiddenError
+			return LeaveGame403JSONResponse{Error: &msg}, nil
+		}
+
+		msg := BadRequestError
+		return LeaveGame400JSONResponse{Error: &msg}, nil
+	}
+
+	msg := "left the game successfully"
+	return LeaveGame200JSONResponse{Message: &msg}, nil
+}
+
 func (s *StrictServer) NextRound(ctx context.Context, request NextRoundRequestObject) (NextRoundResponseObject, error) {
 	token, ok := sessionToken(ctx)
 	if !ok {
