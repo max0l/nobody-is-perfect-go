@@ -1,6 +1,8 @@
 # nobody-is-perfect-go
 
-Backend for a digital helper around the physical game "Nobody is Perfect".
+Online extension for the board game "Nobody is Perfect".
+
+This project is not affiliated with Ravensburger. It does not replace the board game and only provides an online helper for managing players, rounds, answers, and voting. You still need the physical game to play.
 
 The service manages users, games, player order, round phases, answers, voting, reveal state, player presence, and secure session-cookie authentication.
 
