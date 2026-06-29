@@ -349,7 +349,7 @@ func TestSetPlayOrderRejectsInvalidOrder(t *testing.T) {
 	}
 }
 
-func TestPingUpdatesPresenceAndPlayersBecomeOffline(t *testing.T) {
+func TestStatusUpdatesPresenceAndPlayersBecomeOffline(t *testing.T) {
 	base := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
 	service, gameID, owner, player := serviceWithTwoPlayersAt(t, base)
 
@@ -368,25 +368,25 @@ func TestPingUpdatesPresenceAndPlayersBecomeOffline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetStatus returned error after timeout: %v", err)
 	}
-	for _, player := range status.Players {
-		if player.Online {
-			t.Fatalf("expected player offline after timeout: %+v", player)
+	for _, entry := range status.Players {
+		if entry.UserUUID == *owner.GetUserID() && !entry.Online {
+			t.Fatal("expected polling owner to be online")
+		}
+		if entry.UserUUID == *player.GetUserID() && entry.Online {
+			t.Fatalf("expected inactive player offline after timeout: %+v", entry)
 		}
 	}
 
-	if err := service.PingGame(gameID, *player.GetUserToken()); err != nil {
-		t.Fatalf("PingGame returned error: %v", err)
-	}
 	status, err = service.GetStatus(gameID, *player.GetUserToken())
 	if err != nil {
-		t.Fatalf("GetStatus returned error after ping: %v", err)
+		t.Fatalf("GetStatus returned error after player poll: %v", err)
 	}
 	foundPlayer := false
 	for _, entry := range status.Players {
 		if entry.UserUUID == *player.GetUserID() {
 			foundPlayer = true
 			if !entry.Online {
-				t.Fatal("expected pinged player to be online")
+				t.Fatal("expected polling player to be online")
 			}
 		}
 	}
@@ -421,8 +421,8 @@ func TestKickPlayerRemovesPlayerAndPreventsFurtherMutation(t *testing.T) {
 	if len(entries) != 1 || entries[0].UserUUID != *owner.GetUserID() {
 		t.Fatalf("expected only owner after kick, got %+v", entries)
 	}
-	if err := service.PingGame(gameID, *player.GetUserToken()); !errors.Is(err, ErrForbidden) {
-		t.Fatalf("expected kicked player ping to be forbidden, got %v", err)
+	if _, err := service.GetStatus(gameID, *player.GetUserToken()); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("expected kicked player status to be forbidden, got %v", err)
 	}
 }
 

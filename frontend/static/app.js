@@ -7,7 +7,6 @@ const state = {
   revealed: [],
   votedAnswerUUID: "",
   pollTimer: 0,
-  pingTimer: 0,
   busy: false,
   menuOpen: false,
 };
@@ -245,14 +244,10 @@ function logoutUser() {
 function startTimers() {
   stopTimers();
   state.pollTimer = window.setInterval(refreshGame, 3000);
-  state.pingTimer = window.setInterval(() => {
-    api(`/api/game/${encodeURIComponent(state.gameId)}/ping`, { method: "POST", quiet: true }).catch(() => {});
-  }, 7000);
 }
 
 function stopTimers() {
   clearInterval(state.pollTimer);
-  clearInterval(state.pingTimer);
 }
 
 async function refreshGame() {

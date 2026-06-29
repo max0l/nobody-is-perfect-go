@@ -122,11 +122,6 @@ type NextRoundResponse struct {
 	Message *string `json:"message,omitempty"`
 }
 
-// PingResponse defines model for PingResponse.
-type PingResponse struct {
-	Message *string `json:"message,omitempty"`
-}
-
 // PlayOrderResponse defines model for PlayOrderResponse.
 type PlayOrderResponse struct {
 	PlayOrder *[]PlayOrderUser `json:"playOrder,omitempty"`

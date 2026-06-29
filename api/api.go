@@ -369,35 +369,6 @@ func (s *StrictServer) VoteForAnswer(ctx context.Context, request VoteForAnswerR
 	return VoteForAnswer200JSONResponse{Message: &msg}, nil
 }
 
-func (s *StrictServer) PingGame(ctx context.Context, request PingGameRequestObject) (PingGameResponseObject, error) {
-	token, ok := sessionToken(ctx)
-	if !ok {
-		msg := UnauthorizedError
-		return PingGame401JSONResponse{Error: &msg}, nil
-	}
-
-	if err := s.gameService.PingGame(request.GameId, token); err != nil {
-		if errors.Is(err, game.ErrGameNotFound) {
-			msg := GameNotFoundError
-			return PingGame404JSONResponse{Error: &msg}, nil
-		}
-		if errors.Is(err, game.ErrUserNotFound) {
-			msg := UnauthorizedError
-			return PingGame401JSONResponse{Error: &msg}, nil
-		}
-		if errors.Is(err, game.ErrForbidden) {
-			msg := ForbiddenError
-			return PingGame403JSONResponse{Error: &msg}, nil
-		}
-
-		msg := BadRequestError
-		return PingGame400JSONResponse{Error: &msg}, nil
-	}
-
-	msg := "pong"
-	return PingGame200JSONResponse{Message: &msg}, nil
-}
-
 func (s *StrictServer) HealthCheck(ctx context.Context, request HealthCheckRequestObject) (HealthCheckResponseObject, error) {
 	return HealthCheck200JSONResponse("ok"), nil
 }

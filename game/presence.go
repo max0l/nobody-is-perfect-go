@@ -6,29 +6,6 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *Service) PingGame(gameID string, token uuid.UUID) error {
-	s.Lock.Lock()
-	defer s.Lock.Unlock()
-
-	now := s.now()
-	if s.discardExpiredGameLocked(gameID, now) {
-		return ErrGameNotFound
-	}
-
-	game, user, err := s.gameAndUser(gameID, token)
-	if err != nil {
-		return err
-	}
-	if _, isPlayer := game.players[user.userID]; !isPlayer {
-		return ErrForbidden
-	}
-
-	game.lastSeenByUser[user.userID] = now
-	game.allOfflineSince = time.Time{}
-
-	return nil
-}
-
 func (s *Service) KickPlayer(gameID string, token uuid.UUID, targetUserID uuid.UUID) error {
 	s.Lock.Lock()
 	defer s.Lock.Unlock()

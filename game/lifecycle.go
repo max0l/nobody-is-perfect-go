@@ -1,6 +1,10 @@
 package game
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type StatusView struct {
 	GameStatus      GameStatus
@@ -160,10 +164,13 @@ func (s *Service) GetStatus(gameID string, token uuid.UUID) (StatusView, error) 
 	if _, isPlayer := game.players[user.userID]; !isPlayer {
 		return StatusView{}, ErrForbidden
 	}
+	now := s.now()
+	game.lastSeenByUser[user.userID] = now
+	game.allOfflineSince = time.Time{}
 
 	view := StatusView{
 		GameStatus:    game.gameStatus,
-		Players:       game.playOrderEntries(game.players, s.now()),
+		Players:       game.playOrderEntries(game.players, now),
 		GameOwnerUUID: game.gameOwner,
 		PlayerCount:   len(game.players),
 		Round:         game.currentRound,

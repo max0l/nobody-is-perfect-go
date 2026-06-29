@@ -531,37 +531,6 @@ func TestRevealEndpointRequiresAllEligiblePlayersToVote(t *testing.T) {
 	}
 }
 
-func TestPingGameEndpointUpdatesOnlineStatus(t *testing.T) {
-	server, gameID, owner, _ := serverWithGameAndJoinedPlayer(t)
-	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
-
-	response, err := server.PingGame(ownerCtx, PingGameRequestObject{GameId: gameID})
-	if err != nil {
-		t.Fatalf("PingGame returned error: %v", err)
-	}
-	if _, ok := response.(PingGame200JSONResponse); !ok {
-		t.Fatalf("expected PingGame200JSONResponse, got %T", response)
-	}
-
-	statusResponse, err := server.GetGameStatus(ownerCtx, GetGameStatusRequestObject{GameId: gameID})
-	if err != nil {
-		t.Fatalf("GetGameStatus returned error: %v", err)
-	}
-	status := statusResponse.(GetGameStatus200JSONResponse)
-	if status.Users == nil || len(*status.Users) == 0 {
-		t.Fatal("expected users in status")
-	}
-	for _, user := range *status.Users {
-		if user.UserUUID != nil && *user.UserUUID == *owner.UserUUID {
-			if user.Online == nil || !*user.Online {
-				t.Fatal("expected pinged owner to be online")
-			}
-			return
-		}
-	}
-	t.Fatal("expected owner in status")
-}
-
 func TestKickPlayerEndpointRequiresCreator(t *testing.T) {
 	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
 	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
