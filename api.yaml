@@ -80,6 +80,13 @@ components:
         userToken:
           $ref: "#/components/schemas/UUID"
 
+    LogoutResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Logged out successfully"
+
     CreateUserRequest:
       type: object
       properties:
@@ -360,6 +367,19 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ForbiddenResponse"
+
+  /api/logout:
+    post:
+      summary: Log out the current user
+      description: Clears the session cookie if one is present
+      operationId: logout
+      responses:
+        '200':
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutResponse"
 
   /api/create/game:
     post:

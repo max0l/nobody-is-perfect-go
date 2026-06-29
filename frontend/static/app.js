@@ -128,6 +128,7 @@ async function runAction(action) {
     next: { path: "/next", message: "Next round started", clearRound: true },
     finish: { path: "/finish", message: "Game finished", stop: true },
     leave: { path: "/leave", message: "Left game", leave: true },
+    logout: { logout: true },
     home: { local: true },
   };
   const selected = actions[action];
@@ -136,6 +137,12 @@ async function runAction(action) {
   await withBusy(async () => {
     if (selected.local) {
       leaveGame();
+      return;
+    }
+    if (selected.logout) {
+      await api("/api/logout", { method: "POST" });
+      notice("Logged out");
+      logoutUser();
       return;
     }
     if (selected.reveal) {
@@ -174,6 +181,21 @@ function leaveGame() {
   state.status = null;
   state.answers = [];
   state.revealed = [];
+  localStorage.removeItem("nip.gameId");
+  stopTimers();
+  if (location.pathname !== "/") history.pushState(null, "", "/");
+  renderStage();
+}
+
+function logoutUser() {
+  state.userUUID = "";
+  state.username = "";
+  state.gameId = "";
+  state.status = null;
+  state.answers = [];
+  state.revealed = [];
+  localStorage.removeItem("nip.userUUID");
+  localStorage.removeItem("nip.username");
   localStorage.removeItem("nip.gameId");
   stopTimers();
   if (location.pathname !== "/") history.pushState(null, "", "/");
@@ -289,6 +311,7 @@ function renderChooseGame() {
         <button type="submit" ${busyAttr()}>Join game</button>
       </form>
     </details>
+    ${detailsMenu([logoutButton()])}
   `;
 }
 
@@ -430,8 +453,13 @@ function leaderActions(roundStatus) {
 function gameActions(showFinish) {
   return `
     <button data-action="leave" ${busyAttr()}>Leave game</button>
+    ${logoutButton()}
     ${showFinish ? `<button class="danger" data-action="finish" ${busyAttr()}>Finish game</button>` : ""}
   `;
+}
+
+function logoutButton() {
+  return `<button data-action="logout" ${busyAttr()}>Logout</button>`;
 }
 
 function copyLinkButton() {

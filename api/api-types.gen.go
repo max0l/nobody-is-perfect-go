@@ -112,6 +112,11 @@ type JoinGameResponse struct {
 	Message *string `json:"message,omitempty"`
 }
 
+// LogoutResponse defines model for LogoutResponse.
+type LogoutResponse struct {
+	Message *string `json:"message,omitempty"`
+}
+
 // NextRoundResponse defines model for NextRoundResponse.
 type NextRoundResponse struct {
 	Message *string `json:"message,omitempty"`

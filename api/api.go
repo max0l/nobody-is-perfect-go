@@ -635,6 +635,12 @@ func (s *StrictServer) CreateUser(ctx context.Context, request CreateUserRequest
 	return CreateUser403JSONResponse{Error: &msg}, nil
 }
 
+func (s *StrictServer) Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error) {
+	clearSessionCookie(ctx)
+	msg := "logged out successfully"
+	return Logout200JSONResponse{Message: &msg}, nil
+}
+
 func setSessionCookie(ctx context.Context, token string) {
 	ginContext, ok := ctx.(*gin.Context)
 	if !ok {
@@ -643,6 +649,16 @@ func setSessionCookie(ctx context.Context, token string) {
 
 	ginContext.SetSameSite(http.SameSiteStrictMode)
 	ginContext.SetCookie(SessionCookieName, token, SessionCookieMaxAge, "/", "", true, true)
+}
+
+func clearSessionCookie(ctx context.Context) {
+	ginContext, ok := ctx.(*gin.Context)
+	if !ok {
+		return
+	}
+
+	ginContext.SetSameSite(http.SameSiteStrictMode)
+	ginContext.SetCookie(SessionCookieName, "", -1, "/", "", true, true)
 }
 
 func sessionToken(ctx context.Context) (uuid.UUID, bool) {

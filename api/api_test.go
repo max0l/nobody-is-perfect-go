@@ -75,6 +75,60 @@ func TestCreateUserSetsSecureHTTPOnlySessionCookie(t *testing.T) {
 	}
 }
 
+func TestLogoutClearsSessionCookie(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	server := NewServer()
+	response := httptest.NewRecorder()
+	ginContext, _ := gin.CreateTestContext(response)
+
+	logoutResponse, err := server.Logout(ginContext, LogoutRequestObject{})
+	if err != nil {
+		t.Fatalf("Logout returned error: %v", err)
+	}
+	if _, ok := logoutResponse.(Logout200JSONResponse); !ok {
+		t.Fatalf("expected Logout200JSONResponse, got %T", logoutResponse)
+	}
+
+	cookies := response.Result().Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf("expected one cookie, got %d", len(cookies))
+	}
+	cookie := cookies[0]
+	if cookie.Name != SessionCookieName {
+		t.Fatalf("expected cookie name %q, got %q", SessionCookieName, cookie.Name)
+	}
+	if cookie.Value != "" {
+		t.Fatalf("expected empty cookie value, got %q", cookie.Value)
+	}
+	if cookie.MaxAge != -1 {
+		t.Fatalf("expected cookie max age -1, got %d", cookie.MaxAge)
+	}
+	if !cookie.HttpOnly {
+		t.Fatal("expected cookie to be HttpOnly")
+	}
+	if !cookie.Secure {
+		t.Fatal("expected cookie to be Secure")
+	}
+	if cookie.SameSite != http.SameSiteStrictMode {
+		t.Fatalf("expected SameSite=Strict, got %v", cookie.SameSite)
+	}
+	if cookie.Path != "/" {
+		t.Fatalf("expected cookie path /, got %q", cookie.Path)
+	}
+}
+
+func TestLogoutWorksWithoutGinContext(t *testing.T) {
+	server := NewServer()
+
+	response, err := server.Logout(context.Background(), LogoutRequestObject{})
+	if err != nil {
+		t.Fatalf("Logout returned error: %v", err)
+	}
+	if _, ok := response.(Logout200JSONResponse); !ok {
+		t.Fatalf("expected Logout200JSONResponse, got %T", response)
+	}
+}
+
 func TestCreateUserReturnsBadRequestForMissingUsername(t *testing.T) {
 	server := NewServer()
 
