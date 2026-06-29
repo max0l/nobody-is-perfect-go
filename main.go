@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
 	"embed"
+	"errors"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
@@ -23,6 +27,8 @@ import (
 //go:embed api/index.html
 //go:embed api.yaml
 var swaggerUI embed.FS
+
+const shutdownTimeout = 10 * time.Second
 
 func main() {
 	cfg, err := config.Load()
@@ -68,7 +74,39 @@ func main() {
 	}
 
 	log.Info().Str("addr", cfg.Addr()).Str("api_base_url", cfg.APIBaseURL).Int("max_concurrent_games", cfg.MaxConcurrentGames).Str("wordlist_path", cfg.WordlistPath).Msg("starting http server")
-	log.Fatal().Err(s.ListenAndServe()).Msg("http server stopped")
+	if err := runHTTPServer(s); err != nil {
+		log.Fatal().Err(err).Msg("http server stopped")
+	}
+}
+
+func runHTTPServer(s *http.Server) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	serverErr := make(chan error, 1)
+	go func() {
+		if err := s.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serverErr <- err
+			return
+		}
+		serverErr <- nil
+	}()
+
+	select {
+	case err := <-serverErr:
+		return err
+	case <-ctx.Done():
+	}
+
+	stop()
+	log.Info().Dur("timeout", shutdownTimeout).Msg("shutting down http server")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	if err := s.Shutdown(shutdownCtx); err != nil {
+		return err
+	}
+
+	return <-serverErr
 }
 
 func configureLogging(format string) {
