@@ -173,13 +173,6 @@ components:
           type: string
           example: "Received the answer"
 
-    ValidAnswersSelectedResponse:
-      type: object
-      properties:
-        message:
-          type: string
-          example: "Valid answers selected successfully"
-
     VoteRecordedResponse:
       type: object
       properties:
@@ -272,14 +265,6 @@ components:
         username:
           type: string
           example: "john_doe"
-
-    SelectValidAnswersRequest:
-      type: object
-      properties:
-        validAnswers:
-          type: array
-          items:
-            $ref: "#/components/schemas/UUID"
 
     VoteRequest:
       type: object
@@ -806,58 +791,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AnswersResponse"
-        '400':
-          description: Bad request, missing required fields
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/BadRequestResponse"
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UnauthorizedResponse"
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ForbiddenResponse"
-        '404':
-          description: Game not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GameNotFoundResponse"
-
-  /api/game/{gameId}/answers/selectValids:
-    put:
-      summary: Select valid answers for the game
-      description: Will allow the game master to select valid answers for the game
-      operationId: selectValidAnswers
-      security:
-        - sessionCookie: []
-      parameters:
-        - name: gameId
-          in: path
-          required: true
-          schema:
-            type: string
-            example: "chug.value.funds"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SelectValidAnswersRequest"
-      responses:
-        '200':
-          description: Valid answers selected successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ValidAnswersSelectedResponse"
         '400':
           description: Bad request, missing required fields
           content:

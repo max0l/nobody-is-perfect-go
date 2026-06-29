@@ -35,6 +35,23 @@ func (s *Service) StartGame(gameID string, token uuid.UUID) error {
 	return nil
 }
 
+func (s *Service) FinishGame(gameID string, token uuid.UUID) error {
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+
+	game, user, err := s.gameAndUser(gameID, token)
+	if err != nil {
+		return err
+	}
+	if game.gameOwner != user.userID {
+		return ErrForbidden
+	}
+
+	delete(s.games, gameID)
+
+	return nil
+}
+
 func (s *Service) StartVoting(gameID string, token uuid.UUID) error {
 	s.Lock.Lock()
 	defer s.Lock.Unlock()

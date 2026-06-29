@@ -539,6 +539,36 @@ func TestKickPlayerEndpointRequiresCreator(t *testing.T) {
 	}
 }
 
+func TestFinishGameEndpointDeletesGameAndRequiresOwner(t *testing.T) {
+	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+
+	forbiddenResponse, err := server.FinishGame(playerCtx, FinishGameRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("FinishGame non-owner returned error: %v", err)
+	}
+	if _, ok := forbiddenResponse.(FinishGame403JSONResponse); !ok {
+		t.Fatalf("expected FinishGame403JSONResponse, got %T", forbiddenResponse)
+	}
+
+	response, err := server.FinishGame(ownerCtx, FinishGameRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("FinishGame owner returned error: %v", err)
+	}
+	if _, ok := response.(FinishGame200JSONResponse); !ok {
+		t.Fatalf("expected FinishGame200JSONResponse, got %T", response)
+	}
+
+	statusResponse, err := server.GetGameStatus(ownerCtx, GetGameStatusRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetGameStatus after finish returned error: %v", err)
+	}
+	if _, ok := statusResponse.(GetGameStatus404JSONResponse); !ok {
+		t.Fatalf("expected GetGameStatus404JSONResponse after finish, got %T", statusResponse)
+	}
+}
+
 func serverWithGameAndJoinedPlayer(t *testing.T) (*StrictServer, string, CreateUser201JSONResponse, CreateUser201JSONResponse) {
 	t.Helper()
 

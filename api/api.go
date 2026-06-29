@@ -132,14 +132,33 @@ func (s *StrictServer) SendAnswer(ctx context.Context, request SendAnswerRequest
 	return SendAnswer200JSONResponse{Message: &msg}, nil
 }
 
-func (s *StrictServer) SelectValidAnswers(ctx context.Context, request SelectValidAnswersRequestObject) (SelectValidAnswersResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (s *StrictServer) FinishGame(ctx context.Context, request FinishGameRequestObject) (FinishGameResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
+	token, ok := sessionToken(ctx)
+	if !ok {
+		msg := UnauthorizedError
+		return FinishGame401JSONResponse{Error: &msg}, nil
+	}
+
+	if err := s.gameService.FinishGame(request.GameId, token); err != nil {
+		if errors.Is(err, game.ErrGameNotFound) {
+			msg := GameNotFoundError
+			return FinishGame404JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrUserNotFound) {
+			msg := UnauthorizedError
+			return FinishGame401JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrForbidden) {
+			msg := ForbiddenError
+			return FinishGame403JSONResponse{Error: &msg}, nil
+		}
+
+		msg := BadRequestError
+		return FinishGame400JSONResponse{Error: &msg}, nil
+	}
+
+	msg := "game finished successfully"
+	return FinishGame200JSONResponse{Message: &msg}, nil
 }
 
 func (s *StrictServer) NextRound(ctx context.Context, request NextRoundRequestObject) (NextRoundResponseObject, error) {

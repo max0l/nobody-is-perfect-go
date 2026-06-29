@@ -437,6 +437,31 @@ func TestKickPlayerRequiresOwnerAndCannotKickOwner(t *testing.T) {
 	}
 }
 
+func TestFinishGameDeletesGame(t *testing.T) {
+	service, gameID, owner, _ := serviceWithTwoPlayers(t)
+
+	if err := service.FinishGame(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("FinishGame returned error: %v", err)
+	}
+	if service.games[gameID] != nil {
+		t.Fatal("expected game to be removed")
+	}
+	if _, err := service.GetStatus(gameID, *owner.GetUserToken()); !errors.Is(err, ErrGameNotFound) {
+		t.Fatalf("expected ErrGameNotFound after finish, got %v", err)
+	}
+}
+
+func TestFinishGameRequiresOwner(t *testing.T) {
+	service, gameID, owner, player := serviceWithTwoPlayers(t)
+
+	if err := service.FinishGame(gameID, *player.GetUserToken()); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("expected ErrForbidden, got %v", err)
+	}
+	if _, err := service.GetStatus(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("expected game to remain after forbidden finish, got %v", err)
+	}
+}
+
 func TestKickCurrentRoundMasterRotatesMaster(t *testing.T) {
 	service, gameID, owner, player := serviceWithTwoPlayers(t)
 	if err := service.StartGame(gameID, *owner.GetUserToken()); err != nil {

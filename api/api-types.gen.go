@@ -145,11 +145,6 @@ type RevealVotesResponse struct {
 	Answers *[]AnswerWithVotes `json:"answers,omitempty"`
 }
 
-// SelectValidAnswersRequest defines model for SelectValidAnswersRequest.
-type SelectValidAnswersRequest struct {
-	ValidAnswers *[]UUID `json:"validAnswers,omitempty"`
-}
-
 // SetPlayOrderRequest defines model for SetPlayOrderRequest.
 type SetPlayOrderRequest struct {
 	PlayOrder *[]struct {
@@ -179,11 +174,6 @@ type UserToken struct {
 	UserUUID  *UUID `json:"userUUID,omitempty"`
 }
 
-// ValidAnswersSelectedResponse defines model for ValidAnswersSelectedResponse.
-type ValidAnswersSelectedResponse struct {
-	Message *string `json:"message,omitempty"`
-}
-
 // VoteRecordedResponse defines model for VoteRecordedResponse.
 type VoteRecordedResponse struct {
 	Message *string `json:"message,omitempty"`
@@ -210,9 +200,6 @@ type CreateUserJSONRequestBody = CreateUserRequest
 
 // SendAnswerJSONRequestBody defines body for SendAnswer for application/json ContentType.
 type SendAnswerJSONRequestBody = AnswerRequest
-
-// SelectValidAnswersJSONRequestBody defines body for SelectValidAnswers for application/json ContentType.
-type SelectValidAnswersJSONRequestBody = SelectValidAnswersRequest
 
 // VoteForAnswerJSONRequestBody defines body for VoteForAnswer for application/json ContentType.
 type VoteForAnswerJSONRequestBody = VoteRequest
