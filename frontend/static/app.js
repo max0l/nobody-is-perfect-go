@@ -136,6 +136,8 @@ async function runAction(action) {
   const selected = actions[action];
   if (!selected) return;
 
+  if (needsEmergencyConfirmation(action) && !confirmEmergencyAction(action)) return;
+
   await withBusy(async () => {
     if (selected.local) {
       leaveGame();
@@ -370,7 +372,7 @@ function renderVoting() {
     ${gameHeader(`Round ${status.round}`, "Voting")}
     ${statRow()}
     ${body}
-    ${detailsMenu([playerList(), canLead && !isRoundMaster ? `<button data-action="reveal" ${busyAttr()}>Reveal votes</button>` : "", gameActions(isOwner())])}
+    ${detailsMenu([playerList(), canLead && !isRoundMaster ? `<button class="danger" data-action="reveal" ${busyAttr()}>Emergency reveal votes</button>` : "", gameActions(isOwner())])}
   `;
 }
 
@@ -534,6 +536,20 @@ function isOwner() {
 function canLeadRound() {
   const status = state.status || {};
   return status.gameMasterUUID === state.userUUID || status.roundMasterUUID === state.userUUID;
+}
+
+function needsEmergencyConfirmation(action) {
+  const status = state.status || {};
+  if (action === "finish") return true;
+  return action === "reveal" && status.gameMasterUUID === state.userUUID && status.roundMasterUUID !== state.userUUID;
+}
+
+function confirmEmergencyAction(action) {
+  const messages = {
+    reveal: "Only reveal votes as the host in an emergency. Reveal votes now?",
+    finish: "Finishing ends the game for everyone. Finish the game now?",
+  };
+  return window.confirm(messages[action] || "Continue?");
 }
 
 function loadStoredVote() {
