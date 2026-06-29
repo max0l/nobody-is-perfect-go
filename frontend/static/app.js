@@ -10,6 +10,7 @@ const state = {
   pollTimer: 0,
   busy: false,
   menuOpen: false,
+  qrOpen: false,
 };
 
 const stageCard = document.querySelector("#stage-card");
@@ -33,6 +34,7 @@ function bindGlobalEvents() {
     state.gameId = "";
     state.status = null;
     state.menuOpen = false;
+    state.qrOpen = false;
     stopTimers();
     renderStage();
   });
@@ -120,6 +122,14 @@ function bindStageEvents() {
       } catch (error) {
         if (error.name !== "AbortError") notice(error.message);
       }
+    });
+  }
+
+  const qrToggle = document.querySelector("#qr-toggle");
+  if (qrToggle) {
+    qrToggle.addEventListener("click", () => {
+      state.qrOpen = !state.qrOpen;
+      renderStage();
     });
   }
 
@@ -220,6 +230,7 @@ async function runAction(action) {
 }
 
 async function enterGame(gameId, replace) {
+  if (state.gameId !== gameId) state.qrOpen = false;
   state.gameId = gameId;
   localStorage.setItem("nip.gameId", gameId);
   if (!replace && location.pathname !== `/game/${gameId}`) {
@@ -240,6 +251,7 @@ function leaveGame() {
   state.revealed = [];
   state.votedAnswerUUID = "";
   state.menuOpen = false;
+  state.qrOpen = false;
   localStorage.removeItem("nip.gameId");
   stopTimers();
   if (location.pathname !== "/") history.pushState(null, "", "/");
@@ -256,6 +268,7 @@ function logoutUser() {
   state.revealed = [];
   state.votedAnswerUUID = "";
   state.menuOpen = false;
+  state.qrOpen = false;
   localStorage.removeItem("nip.userUUID");
   localStorage.removeItem("nip.username");
   localStorage.removeItem("nip.gameId");
@@ -563,15 +576,16 @@ function invitePanel() {
   const url = inviteLink();
   return `
     <section class="invite-panel" aria-label="Invite players">
-      <img class="qr-code" src="${escapeAttr(qrCodeURL(url))}" alt="QR code for joining game ${escapeAttr(state.gameId)}">
       <div class="invite-actions">
-        <p class="muted">Scan the QR code or share the invite link.</p>
+        <p class="muted">Share the invite link or open the QR code for nearby players.</p>
         <a class="invite-url" href="${escapeAttr(url)}">${escapeHTML(url)}</a>
         <div class="button-row">
+          <button id="qr-toggle" type="button" aria-expanded="${state.qrOpen ? "true" : "false"}" aria-controls="qr-code">${state.qrOpen ? "Hide QR code" : "Show QR code"}</button>
           ${copyLinkButton()}
           <button id="share-link" class="primary" type="button">Share invite</button>
         </div>
       </div>
+      ${state.qrOpen ? `<img id="qr-code" class="qr-code" src="${escapeAttr(qrCodeURL(url))}" alt="QR code for joining game ${escapeAttr(state.gameId)}">` : ""}
     </section>
   `;
 }
@@ -669,6 +683,7 @@ function returnToChooseGame(reason) {
   state.revealed = [];
   state.votedAnswerUUID = "";
   state.menuOpen = false;
+  state.qrOpen = false;
   localStorage.removeItem("nip.gameId");
   stopTimers();
   if (location.pathname !== "/") history.pushState(null, "", "/");
