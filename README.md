@@ -6,7 +6,7 @@ The service manages users, games, player order, round phases, answers, voting, r
 
 ## Requirements
 
-- Go `1.26.1`
+- Go `1.26.4`
 - Optional but recommended: [`go-task`](https://taskfile.dev/)
 
 Install `go-task`:
