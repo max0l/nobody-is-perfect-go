@@ -176,13 +176,13 @@ Game endpoints that require authentication are protected by the OpenAPI `session
 
 ## Presence
 
-Players should call the ping endpoint roughly every 5 seconds:
+Players should call the ping endpoint periodically while they are active. The cadence does not need to be exact; it only needs to be comfortably below the offline timeout.
 
 ```http
 POST /api/game/{gameId}/ping
 ```
 
-Players are considered offline after missing pings for a short timeout. A game is discarded after all players have been offline for 60 seconds.
+Players are considered offline after 15 seconds without a ping. A game is discarded after all players have been offline for 60 seconds.
 
 The game status and play-order responses include each player's `online` indicator.
 
