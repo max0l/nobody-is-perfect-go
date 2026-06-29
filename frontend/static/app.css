@@ -219,6 +219,47 @@ p { margin: 0; }
   padding-top: 0.6rem;
 }
 
+.action-menu {
+  display: grid;
+  gap: 0.7rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.85rem;
+}
+
+.menu-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  background: var(--surface-strong);
+}
+
+.hamburger {
+  display: grid;
+  gap: 0.22rem;
+  width: 1.15rem;
+}
+
+.hamburger span {
+  display: block;
+  height: 0.16rem;
+  border-radius: 999px;
+  background: currentcolor;
+}
+
+.menu-panel {
+  display: grid;
+  gap: 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--surface);
+  padding: 0.85rem;
+}
+
+.menu-panel[hidden] {
+  display: none;
+}
+
 .players {
   display: grid;
   gap: 0.55rem;
@@ -320,6 +361,16 @@ p { margin: 0; }
   .button-row {
     display: flex;
     flex-wrap: wrap;
+  }
+
+  .action-menu {
+    justify-items: end;
+    position: relative;
+  }
+
+  .menu-panel {
+    width: min(100%, 24rem);
+    justify-self: stretch;
   }
 
   .answer-card {

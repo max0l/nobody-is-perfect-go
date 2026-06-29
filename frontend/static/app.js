@@ -9,6 +9,7 @@ const state = {
   pollTimer: 0,
   pingTimer: 0,
   busy: false,
+  menuOpen: false,
 };
 
 const stageCard = document.querySelector("#stage-card");
@@ -31,6 +32,7 @@ function bindGlobalEvents() {
     }
     state.gameId = "";
     state.status = null;
+    state.menuOpen = false;
     stopTimers();
     renderStage();
   });
@@ -106,6 +108,14 @@ function bindStageEvents() {
       } catch (error) {
         if (error.name !== "AbortError") notice(error.message);
       }
+    });
+  }
+
+  const menuToggle = document.querySelector("#menu-toggle");
+  if (menuToggle) {
+    menuToggle.addEventListener("click", () => {
+      state.menuOpen = !state.menuOpen;
+      renderStage();
     });
   }
 
@@ -207,6 +217,7 @@ function leaveGame() {
   state.answers = [];
   state.revealed = [];
   state.votedAnswerUUID = "";
+  state.menuOpen = false;
   localStorage.removeItem("nip.gameId");
   stopTimers();
   if (location.pathname !== "/") history.pushState(null, "", "/");
@@ -222,6 +233,7 @@ function logoutUser() {
   state.answers = [];
   state.revealed = [];
   state.votedAnswerUUID = "";
+  state.menuOpen = false;
   localStorage.removeItem("nip.userUUID");
   localStorage.removeItem("nip.username");
   localStorage.removeItem("nip.gameId");
@@ -537,7 +549,15 @@ function voteLabel() {
 function detailsMenu(parts) {
   const content = parts.filter(Boolean).join("");
   if (!content) return "";
-  return `<details class="submenu"><summary>More</summary><div class="submenu-content">${content}</div></details>`;
+  return `
+    <section class="action-menu ${state.menuOpen ? "open" : ""}">
+      <button id="menu-toggle" class="menu-toggle" type="button" aria-expanded="${state.menuOpen ? "true" : "false"}" aria-controls="menu-panel">
+        <span class="hamburger" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span>Menu</span>
+      </button>
+      <div id="menu-panel" class="menu-panel" ${state.menuOpen ? "" : "hidden"}>${content}</div>
+    </section>
+  `;
 }
 
 async function api(path, options = {}) {
@@ -602,6 +622,7 @@ function returnToChooseGame(reason) {
   state.answers = [];
   state.revealed = [];
   state.votedAnswerUUID = "";
+  state.menuOpen = false;
   localStorage.removeItem("nip.gameId");
   stopTimers();
   if (location.pathname !== "/") history.pushState(null, "", "/");
