@@ -143,6 +143,41 @@ p { margin: 0; }
   font-size: 1.1rem;
 }
 
+.invite-panel {
+  display: grid;
+  gap: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--surface);
+  padding: 0.85rem;
+}
+
+.qr-code {
+  width: min(100%, 13.75rem);
+  height: auto;
+  justify-self: center;
+  border: 0.45rem solid white;
+  border-radius: 0.9rem;
+  background: white;
+}
+
+.invite-actions {
+  display: grid;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.invite-url {
+  overflow-wrap: anywhere;
+  color: var(--accent-dark);
+  font-weight: 800;
+}
+
+.button-row {
+  display: grid;
+  gap: 0.55rem;
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -271,6 +306,20 @@ p { margin: 0; }
     width: auto;
     justify-self: start;
     padding-inline: 1.25rem;
+  }
+
+  .invite-panel {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+  }
+
+  .qr-code {
+    width: 11rem;
+  }
+
+  .button-row {
+    display: flex;
+    flex-wrap: wrap;
   }
 
   .answer-card {

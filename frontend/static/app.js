@@ -87,8 +87,25 @@ function bindStageEvents() {
   const copyLink = document.querySelector("#copy-link");
   if (copyLink) {
     copyLink.addEventListener("click", async () => {
-      await navigator.clipboard.writeText(`${location.origin}/game/${state.gameId}`);
+      await navigator.clipboard.writeText(inviteLink());
       notice("Invite link copied");
+    });
+  }
+
+  const shareLink = document.querySelector("#share-link");
+  if (shareLink) {
+    shareLink.addEventListener("click", async () => {
+      const url = inviteLink();
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: "Join my Nobody is Perfect game", text: `Join game ${state.gameId}`, url });
+          return;
+        }
+        await navigator.clipboard.writeText(url);
+        notice("Invite link copied");
+      } catch (error) {
+        if (error.name !== "AbortError") notice(error.message);
+      }
     });
   }
 
@@ -350,9 +367,10 @@ function renderLobby() {
   return `
     ${gameHeader("Lobby", "Invite players")}
     <p class="lead">Share the game ID and wait for everyone to join.</p>
+    ${invitePanel()}
     ${statRow()}
     ${isOwner ? `<button class="primary" data-action="start" ${busyAttr()}>Start game</button>` : `<p class="waiting">Waiting for the host to start.</p>`}
-    ${detailsMenu([copyLinkButton(), playerList(), gameActions(isOwner)])}
+    ${detailsMenu([playerList(), gameActions(isOwner)])}
   `;
 }
 
@@ -485,6 +503,31 @@ function logoutButton() {
 
 function copyLinkButton() {
   return `<button id="copy-link" type="button">Copy invite link</button>`;
+}
+
+function invitePanel() {
+  const url = inviteLink();
+  return `
+    <section class="invite-panel" aria-label="Invite players">
+      <img class="qr-code" src="${escapeAttr(qrCodeURL(url))}" alt="QR code for joining game ${escapeAttr(state.gameId)}">
+      <div class="invite-actions">
+        <p class="muted">Scan the QR code or share the invite link.</p>
+        <a class="invite-url" href="${escapeAttr(url)}">${escapeHTML(url)}</a>
+        <div class="button-row">
+          ${copyLinkButton()}
+          <button id="share-link" class="primary" type="button">Share invite</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function inviteLink() {
+  return `${location.origin}/game/${state.gameId}`;
+}
+
+function qrCodeURL(value) {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data=${encodeURIComponent(value)}`;
 }
 
 function voteLabel() {
