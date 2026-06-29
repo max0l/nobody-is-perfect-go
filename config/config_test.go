@@ -24,6 +24,42 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.WordlistPath != DefaultWordlistPath {
 		t.Fatalf("expected default wordlist %q, got %q", DefaultWordlistPath, cfg.WordlistPath)
 	}
+	if cfg.APIBaseURL != "http://localhost:8080" {
+		t.Fatalf("expected default API base URL, got %q", cfg.APIBaseURL)
+	}
+}
+
+func TestLoadDerivesAPIBaseURLFromHostAndPort(t *testing.T) {
+	t.Setenv(EnvHost, "127.0.0.1")
+	t.Setenv(EnvPort, "3000")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	if cfg.APIBaseURL != "http://127.0.0.1:3000" {
+		t.Fatalf("expected derived API base URL, got %q", cfg.APIBaseURL)
+	}
+}
+
+func TestLoadUsesExplicitAPIBaseURL(t *testing.T) {
+	t.Setenv(EnvAPIBaseURL, "https://example.com/api")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	if cfg.APIBaseURL != "https://example.com/api" {
+		t.Fatalf("expected explicit API base URL, got %q", cfg.APIBaseURL)
+	}
+}
+
+func TestLoadRejectsInvalidAPIBaseURL(t *testing.T) {
+	t.Setenv(EnvAPIBaseURL, "not-a-url")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("expected invalid API base URL error")
+	}
 }
 
 func TestLoadRejectsInvalidPort(t *testing.T) {

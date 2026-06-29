@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/gin-gonic/gin"
 	"github.com/max0l/nobody-is-perfect-go/api"
@@ -41,6 +42,7 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("load swagger spec")
 	}
+	swagger.Servers = openapi3.Servers{{URL: cfg.APIBaseURL}}
 
 	validator := ginmiddleware.OapiRequestValidatorWithOptions(swagger, &ginmiddleware.Options{
 		ErrorHandler: validationErrorHandler,
@@ -60,7 +62,7 @@ func main() {
 		Addr:    cfg.Addr(),
 	}
 
-	log.Info().Str("addr", cfg.Addr()).Int("max_concurrent_games", cfg.MaxConcurrentGames).Str("wordlist_path", cfg.WordlistPath).Msg("starting http server")
+	log.Info().Str("addr", cfg.Addr()).Str("api_base_url", cfg.APIBaseURL).Int("max_concurrent_games", cfg.MaxConcurrentGames).Str("wordlist_path", cfg.WordlistPath).Msg("starting http server")
 	log.Fatal().Err(s.ListenAndServe()).Msg("http server stopped")
 }
 

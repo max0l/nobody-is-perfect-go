@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strconv"
 )
@@ -17,6 +18,7 @@ const (
 	EnvPort               = "NIP_PORT"
 	EnvMaxConcurrentGames = "NIP_MAX_CONCURRENT_GAMES"
 	EnvWordlistPath       = "NIP_WORDLIST_PATH"
+	EnvAPIBaseURL         = "NIP_API_BASE_URL"
 )
 
 type Config struct {
@@ -24,6 +26,7 @@ type Config struct {
 	Port               int
 	MaxConcurrentGames int
 	WordlistPath       string
+	APIBaseURL         string
 }
 
 func Load() (Config, error) {
@@ -40,12 +43,17 @@ func Load() (Config, error) {
 	if wordlistPath == "" {
 		return Config{}, fmt.Errorf("%s must not be empty", EnvWordlistPath)
 	}
+	apiBaseURL := getEnv(EnvAPIBaseURL, defaultAPIBaseURL(host, port))
+	if err := validateURL(EnvAPIBaseURL, apiBaseURL); err != nil {
+		return Config{}, err
+	}
 
 	return Config{
 		Host:               host,
 		Port:               port,
 		MaxConcurrentGames: maxConcurrentGames,
 		WordlistPath:       wordlistPath,
+		APIBaseURL:         apiBaseURL,
 	}, nil
 }
 
@@ -77,4 +85,25 @@ func getPositiveIntEnv(name string, fallback int) (int, error) {
 	}
 
 	return parsed, nil
+}
+
+func defaultAPIBaseURL(host string, port int) string {
+	apiHost := host
+	if apiHost == "" || apiHost == "0.0.0.0" || apiHost == "::" {
+		apiHost = "localhost"
+	}
+
+	return "http://" + net.JoinHostPort(apiHost, strconv.Itoa(port))
+}
+
+func validateURL(name, value string) error {
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return fmt.Errorf("%s must be a valid URL: %w", name, err)
+	}
+	if parsed.Scheme == "" || parsed.Host == "" {
+		return fmt.Errorf("%s must include scheme and host", name)
+	}
+
+	return nil
 }
