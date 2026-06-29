@@ -33,7 +33,7 @@ func main() {
 	}))
 
 	router := gin.New()
-	router.Use(ginZerologLogger(), gin.Recovery())
+	router.Use(ginZerologLogger(), gin.Recovery(), middlewares.SecurityHeadersMiddleware())
 
 	router.GET("/swagger/*filepath", gin.WrapH(
 		http.StripPrefix("/swagger/", http.FileServer(http.FS(swaggerUI))),
