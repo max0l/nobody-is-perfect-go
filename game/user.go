@@ -1,6 +1,10 @@
 package game
 
-import "github.com/google/uuid"
+import (
+	"unicode/utf8"
+
+	"github.com/google/uuid"
+)
 
 type User struct {
 	token    uuid.UUID
@@ -25,6 +29,9 @@ func (s *Service) CreateUser(username *string) (*User, error) {
 	defer s.Lock.Unlock()
 	if username == nil || *username == "" {
 		return nil, ErrUsernameRequired
+	}
+	if utf8.RuneCountInString(*username) > MaxUsernameLength {
+		return nil, ErrUsernameTooLong
 	}
 
 	userID := uuid.New()

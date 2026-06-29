@@ -19,10 +19,12 @@ const (
 	GameDiscardAfter    = 60 * time.Second
 	DefaultWordlistPath = "words.txt"
 	DefaultMaxGames     = 100
+	MaxUsernameLength   = 32
 )
 
 var (
 	ErrUsernameRequired = errors.New("username is required")
+	ErrUsernameTooLong  = errors.New("username is too long")
 	ErrUserNotFound     = errors.New("user does not exist")
 	ErrGameNotFound     = errors.New("game does not exist")
 	ErrForbidden        = errors.New("forbidden")

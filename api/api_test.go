@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -133,6 +134,24 @@ func TestCreateUserReturnsBadRequestForMissingUsername(t *testing.T) {
 	server := NewServer()
 
 	response, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{}})
+	if err != nil {
+		t.Fatalf("CreateUser returned error: %v", err)
+	}
+
+	badRequest, ok := response.(CreateUser400JSONResponse)
+	if !ok {
+		t.Fatalf("expected CreateUser400JSONResponse, got %T", response)
+	}
+	if badRequest.Error == nil || *badRequest.Error != BadRequestError {
+		t.Fatalf("expected error %q, got %v", BadRequestError, badRequest.Error)
+	}
+}
+
+func TestCreateUserReturnsBadRequestForLongUsername(t *testing.T) {
+	server := NewServer()
+	username := strings.Repeat("a", game.MaxUsernameLength+1)
+
+	response, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &username}})
 	if err != nil {
 		t.Fatalf("CreateUser returned error: %v", err)
 	}

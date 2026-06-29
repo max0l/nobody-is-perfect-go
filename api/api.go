@@ -597,7 +597,7 @@ func (s *StrictServer) CreateUser(ctx context.Context, request CreateUserRequest
 	}
 
 	log.Error().Err(err).Msg("create user")
-	if errors.Is(err, game.ErrUsernameRequired) {
+	if errors.Is(err, game.ErrUsernameRequired) || errors.Is(err, game.ErrUsernameTooLong) {
 		msg := BadRequestError
 		return CreateUser400JSONResponse{Error: &msg}, nil
 	}

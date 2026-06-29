@@ -87,6 +87,19 @@ func TestCreateUserRequiresUsername(t *testing.T) {
 	}
 }
 
+func TestCreateUserRejectsUsernameLongerThanMax(t *testing.T) {
+	service := NewService()
+	valid := strings.Repeat("a", MaxUsernameLength)
+	if _, err := service.CreateUser(&valid); err != nil {
+		t.Fatalf("expected %d-character username to be valid, got %v", MaxUsernameLength, err)
+	}
+
+	tooLong := strings.Repeat("ä", MaxUsernameLength+1)
+	if _, err := service.CreateUser(&tooLong); !errors.Is(err, ErrUsernameTooLong) {
+		t.Fatalf("expected ErrUsernameTooLong, got %v", err)
+	}
+}
+
 func TestCreateGameRequiresKnownUserToken(t *testing.T) {
 	service := NewService()
 

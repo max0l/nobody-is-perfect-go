@@ -337,7 +337,7 @@ function renderProfile() {
     <h1>Nobody is Perfect</h1>
     <p class="lead">Start with your player name. The secure session cookie is handled by the server.</p>
     <form id="profile-form" class="stack">
-      <label>Your name<input id="username" autocomplete="nickname" required maxlength="64" placeholder="Ada" value="${escapeAttr(state.username)}"></label>
+      <label>Your name<input id="username" autocomplete="nickname" required maxlength="32" placeholder="Ada" value="${escapeAttr(state.username)}"></label>
       <button class="primary" type="submit" ${busyAttr()}>Start session</button>
     </form>
   `;

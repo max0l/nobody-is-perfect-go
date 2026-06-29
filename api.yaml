@@ -67,6 +67,7 @@ components:
           $ref: "#/components/schemas/UUID"
         username:
           type: string
+          maxLength: 32
           example: "john_doe"
         online:
           type: boolean
@@ -92,6 +93,7 @@ components:
       properties:
         username:
           type: string
+          maxLength: 32
           example: "john_doe"
 
     GameCreatedResponse:
@@ -113,6 +115,7 @@ components:
       properties:
         username:
           type: string
+          maxLength: 32
           example: "john_doe"
         online:
           type: boolean
@@ -271,6 +274,7 @@ components:
           $ref: "#/components/schemas/UUID"
         username:
           type: string
+          maxLength: 32
           example: "john_doe"
 
     VoteRequest:
@@ -302,6 +306,7 @@ components:
           $ref: "#/components/schemas/UUID"
         username:
           type: string
+          maxLength: 32
           example: "john_doe"
         votes:
           type: array
@@ -315,6 +320,7 @@ components:
           $ref: "#/components/schemas/UUID"
         username:
           type: string
+          maxLength: 32
           example: "john_doe"
 
 paths:
