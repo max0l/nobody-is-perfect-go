@@ -14,9 +14,11 @@ import (
 )
 
 const (
-	minimumWordCount   = 1000
-	PlayerOfflineAfter = 15 * time.Second
-	GameDiscardAfter   = 60 * time.Second
+	minimumWordCount    = 1000
+	PlayerOfflineAfter  = 15 * time.Second
+	GameDiscardAfter    = 60 * time.Second
+	DefaultWordlistPath = "words.txt"
+	DefaultMaxGames     = 100
 )
 
 var (
@@ -30,36 +32,55 @@ var (
 	ErrAnswerNotFound   = errors.New("answer does not exist")
 	ErrCannotKickOwner  = errors.New("cannot kick game owner")
 	ErrPlayerNotFound   = errors.New("player does not exist")
+	ErrMaxGamesReached  = errors.New("max concurrent games reached")
 )
 
+type ServiceOptions struct {
+	WordlistPath       string
+	MaxConcurrentGames int
+}
+
 type Service struct {
-	users     map[uuid.UUID]*User
-	usersByID map[uuid.UUID]*User
-	games     map[string]*Games
-	words     []string
-	random    *rand.Rand
-	now       func() time.Time
-	Lock      sync.Mutex
+	users              map[uuid.UUID]*User
+	usersByID          map[uuid.UUID]*User
+	games              map[string]*Games
+	words              []string
+	maxConcurrentGames int
+	random             *rand.Rand
+	now                func() time.Time
+	Lock               sync.Mutex
 }
 
 func NewService() *Service {
-	words, err := loadWords()
+	return NewServiceWithOptions(ServiceOptions{})
+}
+
+func NewServiceWithOptions(options ServiceOptions) *Service {
+	if options.WordlistPath == "" {
+		options.WordlistPath = DefaultWordlistPath
+	}
+	if options.MaxConcurrentGames == 0 {
+		options.MaxConcurrentGames = DefaultMaxGames
+	}
+
+	words, err := loadWords(options.WordlistPath)
 	if err != nil {
 		panic(err)
 	}
 
 	return &Service{
-		users:     make(map[uuid.UUID]*User),
-		usersByID: make(map[uuid.UUID]*User),
-		games:     make(map[string]*Games),
-		words:     words,
-		random:    rand.New(rand.NewSource(time.Now().UnixNano())),
-		now:       time.Now,
+		users:              make(map[uuid.UUID]*User),
+		usersByID:          make(map[uuid.UUID]*User),
+		games:              make(map[string]*Games),
+		words:              words,
+		maxConcurrentGames: options.MaxConcurrentGames,
+		random:             rand.New(rand.NewSource(time.Now().UnixNano())),
+		now:                time.Now,
 	}
 }
 
-func loadWords() ([]string, error) {
-	file, err := openWordsFile()
+func loadWords(path string) ([]string, error) {
+	file, err := openWordsFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read words file: %w", err)
 	}
@@ -84,13 +105,14 @@ func loadWords() ([]string, error) {
 	return words, nil
 }
 
-func openWordsFile() (*os.File, error) {
-	for _, path := range []string{"words.txt", filepath.Join("..", "words.txt")} {
-		file, err := os.Open(path)
-		if err == nil {
-			return file, nil
-		}
+func openWordsFile(path string) (*os.File, error) {
+	file, err := os.Open(path)
+	if err == nil {
+		return file, nil
+	}
+	if path == DefaultWordlistPath {
+		return os.Open(filepath.Join("..", path))
 	}
 
-	return nil, os.ErrNotExist
+	return nil, err
 }

@@ -9,6 +9,8 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/gin-gonic/gin"
 	"github.com/max0l/nobody-is-perfect-go/api"
+	"github.com/max0l/nobody-is-perfect-go/config"
+	"github.com/max0l/nobody-is-perfect-go/game"
 	"github.com/max0l/nobody-is-perfect-go/middlewares"
 	ginmiddleware "github.com/oapi-codegen/gin-middleware"
 	"github.com/rs/zerolog/log"
@@ -19,7 +21,14 @@ import (
 var swaggerUI embed.FS
 
 func main() {
-	server := api.NewServer()
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatal().Err(err).Msg("load config")
+	}
+	server := api.NewServerWithGameService(game.NewServiceWithOptions(game.ServiceOptions{
+		WordlistPath:       cfg.WordlistPath,
+		MaxConcurrentGames: cfg.MaxConcurrentGames,
+	}))
 
 	router := gin.New()
 	router.Use(ginZerologLogger(), gin.Recovery())
@@ -48,9 +57,10 @@ func main() {
 
 	s := &http.Server{
 		Handler: router,
-		Addr:    "0.0.0.0:8080",
+		Addr:    cfg.Addr(),
 	}
 
+	log.Info().Str("addr", cfg.Addr()).Int("max_concurrent_games", cfg.MaxConcurrentGames).Str("wordlist_path", cfg.WordlistPath).Msg("starting http server")
 	log.Fatal().Err(s.ListenAndServe()).Msg("http server stopped")
 }
 

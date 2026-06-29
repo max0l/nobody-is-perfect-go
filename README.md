@@ -32,6 +32,51 @@ go test ./...
 go build ./...
 ```
 
+## Running The Server
+
+Run with defaults:
+
+```sh
+go run .
+```
+
+The server listens on `0.0.0.0:8080` by default. OpenAPI docs are available at:
+
+```text
+http://localhost:8080/swagger/index.html
+```
+
+Build and run the binary:
+
+```sh
+go build -o nobody-is-perfect-go .
+./nobody-is-perfect-go
+```
+
+Configure the server with environment variables:
+
+```sh
+NIP_HOST=127.0.0.1 NIP_PORT=3000 go run .
+```
+
+Or copy `.env.example` and load it with your shell or process manager:
+
+```sh
+set -a
+. ./.env
+set +a
+go run .
+```
+
+## Configuration
+
+| Environment variable | Default | Description |
+| --- | --- | --- |
+| `NIP_HOST` | `0.0.0.0` | Host/interface the HTTP server binds to. |
+| `NIP_PORT` | `8080` | Port the HTTP server listens on. |
+| `NIP_MAX_CONCURRENT_GAMES` | `100` | Maximum number of active games. Creating another game returns `403 Forbidden`. |
+| `NIP_WORDLIST_PATH` | `words.txt` | Path to the word list used for generated game IDs. |
+
 ## Git Hooks
 
 Install the tracked pre-commit hook:

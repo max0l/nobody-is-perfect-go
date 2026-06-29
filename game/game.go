@@ -43,6 +43,9 @@ func (s *Service) CreateGame(gameCreator uuid.UUID) (string, error) {
 	if !exists {
 		return "", ErrUserNotFound
 	}
+	if len(s.games) >= s.maxConcurrentGames {
+		return "", ErrMaxGamesReached
+	}
 
 	gameID := s.generateNewGame()
 

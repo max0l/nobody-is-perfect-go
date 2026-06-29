@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/max0l/nobody-is-perfect-go/game"
 )
 
 func TestCreateUserReturnsToken(t *testing.T) {
@@ -143,6 +144,37 @@ func TestCreateGameReturnsCreatedForValidSession(t *testing.T) {
 	}
 	if createdGame.GameId == nil || *createdGame.GameId == "" {
 		t.Fatal("expected game ID to be set")
+	}
+}
+
+func TestCreateGameReturnsForbiddenWhenMaxConcurrentGamesReached(t *testing.T) {
+	server := NewServerWithGameService(game.NewServiceWithOptions(game.ServiceOptions{MaxConcurrentGames: 1}))
+	firstName := "first"
+	firstResponse, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &firstName}})
+	if err != nil {
+		t.Fatalf("CreateUser first returned error: %v", err)
+	}
+	first := firstResponse.(CreateUser201JSONResponse)
+	firstCtx := context.WithValue(context.Background(), SessionCookieValueKey, first.UserToken.String())
+	if response, err := server.CreateGame(firstCtx, CreateGameRequestObject{}); err != nil {
+		t.Fatalf("CreateGame first returned error: %v", err)
+	} else if _, ok := response.(CreateGame201JSONResponse); !ok {
+		t.Fatalf("expected CreateGame201JSONResponse, got %T", response)
+	}
+	secondName := "second"
+	secondResponse, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &secondName}})
+	if err != nil {
+		t.Fatalf("CreateUser second returned error: %v", err)
+	}
+	second := secondResponse.(CreateUser201JSONResponse)
+	secondCtx := context.WithValue(context.Background(), SessionCookieValueKey, second.UserToken.String())
+
+	response, err := server.CreateGame(secondCtx, CreateGameRequestObject{})
+	if err != nil {
+		t.Fatalf("CreateGame second returned error: %v", err)
+	}
+	if _, ok := response.(CreateGame403JSONResponse); !ok {
+		t.Fatalf("expected CreateGame403JSONResponse, got %T", response)
 	}
 }
 

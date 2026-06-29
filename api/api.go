@@ -37,6 +37,10 @@ func (s *StrictServer) CreateGame(ctx context.Context, request CreateGameRequest
 			msg := UnauthorizedError
 			return CreateGame401JSONResponse{Error: &msg}, nil
 		}
+		if errors.Is(err, game.ErrMaxGamesReached) {
+			msg := ForbiddenError
+			return CreateGame403JSONResponse{Error: &msg}, nil
+		}
 
 		msg := BadRequestError
 		return CreateGame400JSONResponse{Error: &msg}, nil
@@ -553,8 +557,12 @@ func (s *StrictServer) StartVoting(ctx context.Context, request StartVotingReque
 }
 
 func NewServer() *StrictServer {
+	return NewServerWithGameService(game.NewService())
+}
+
+func NewServerWithGameService(gameService *game.Service) *StrictServer {
 	return &StrictServer{
-		gameService: game.NewService(),
+		gameService: gameService,
 	}
 }
 

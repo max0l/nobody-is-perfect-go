@@ -2,6 +2,7 @@ package game
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -44,6 +45,33 @@ func TestNewServiceLoadsWordsAtStartup(t *testing.T) {
 	if service.random == nil {
 		t.Fatal("expected random source to be initialized")
 	}
+}
+
+func TestNewServiceUsesConfiguredWordlistPath(t *testing.T) {
+	wordlistPath := writeTestWordlist(t)
+
+	service := NewServiceWithOptions(ServiceOptions{WordlistPath: wordlistPath})
+
+	if len(service.words) <= minimumWordCount {
+		t.Fatalf("expected more than %d words, got %d", minimumWordCount, len(service.words))
+	}
+}
+
+func writeTestWordlist(t *testing.T) string {
+	t.Helper()
+
+	var builder strings.Builder
+	for i := 0; i <= minimumWordCount; i++ {
+		builder.WriteString("word")
+		builder.WriteString(string(rune('a' + i%26)))
+		builder.WriteString("\n")
+	}
+	path := t.TempDir() + "/words.txt"
+	if err := os.WriteFile(path, []byte(builder.String()), 0o600); err != nil {
+		t.Fatalf("WriteFile returned error: %v", err)
+	}
+
+	return path
 }
 
 func TestCreateUserRequiresUsername(t *testing.T) {
@@ -104,6 +132,27 @@ func TestCreateGameStoresCreatedGame(t *testing.T) {
 	}
 	if createdGame.placeByUser[userID] != 1 {
 		t.Fatal("expected creator to be first in play order")
+	}
+}
+
+func TestCreateGameRejectsMaxConcurrentGames(t *testing.T) {
+	service := NewServiceWithOptions(ServiceOptions{MaxConcurrentGames: 1})
+	firstName := "first"
+	first, err := service.CreateUser(&firstName)
+	if err != nil {
+		t.Fatalf("CreateUser first returned error: %v", err)
+	}
+	if _, err := service.CreateGame(*first.GetUserToken()); err != nil {
+		t.Fatalf("CreateGame first returned error: %v", err)
+	}
+	secondName := "second"
+	second, err := service.CreateUser(&secondName)
+	if err != nil {
+		t.Fatalf("CreateUser second returned error: %v", err)
+	}
+
+	if _, err := service.CreateGame(*second.GetUserToken()); !errors.Is(err, ErrMaxGamesReached) {
+		t.Fatalf("expected ErrMaxGamesReached, got %v", err)
 	}
 }
 
