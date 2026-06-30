@@ -239,6 +239,63 @@ p { margin: 0; }
   overflow-wrap: anywhere;
 }
 
+.review-action {
+  display: grid;
+  gap: 0.75rem;
+  border: 2px solid var(--good);
+  border-radius: 1.1rem;
+  background: color-mix(in srgb, var(--good) 16%, var(--surface));
+  padding: 0.9rem;
+  box-shadow: 0 0 0 0.2rem color-mix(in srgb, var(--good) 18%, transparent);
+}
+
+.review-action strong {
+  display: block;
+  font-size: 1.05rem;
+}
+
+.review-action p {
+  margin-top: 0.15rem;
+  color: var(--ink);
+}
+
+.review-button {
+  background: var(--good);
+  color: white;
+}
+
+.tooltip {
+  position: relative;
+  display: block;
+}
+
+.tooltip::after {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.55rem);
+  z-index: 2;
+  width: max-content;
+  max-width: min(18rem, 86vw);
+  border-radius: 0.75rem;
+  background: var(--ink);
+  color: var(--bg);
+  content: attr(data-tooltip);
+  opacity: 0;
+  padding: 0.45rem 0.65rem;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(0.25rem);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.tooltip:hover::after,
+.tooltip:focus-within::after {
+  opacity: 1;
+  transform: translateX(-50%);
+}
+
 .overwrite-note {
   margin-top: -0.35rem;
 }

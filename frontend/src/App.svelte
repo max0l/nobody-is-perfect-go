@@ -569,12 +569,21 @@
       {@render GameHeader(`Round ${status?.round || ""}`, "Answering")}
       {@render Stats()}
       {#if status?.roundMasterUUID === userUUID}
-        <p class="waiting">You are the round master. You can submit your own answer, then review all answers.</p>
-        {#if !hasEnoughPlayers}
+        {#if hasEnoughPlayers && allPlayersAnswered}
+          <section class="review-action" aria-labelledby="review-action-title">
+            <div>
+              <strong id="review-action-title">Ready to review</strong>
+              <p id="review-action-help">All answers are in. Review and remove any answers before voting starts.</p>
+            </div>
+            <span class="tooltip" data-tooltip="Opens the answer review step before players vote.">
+              <button class="primary review-button" disabled={busy} aria-describedby="review-action-help" title="Review submitted answers before voting" on:click={() => runAction("startVerification")}>Review answers</button>
+            </span>
+          </section>
+        {:else if !hasEnoughPlayers}
+          <p class="waiting">You are the round master. You can submit your own answer, then review all answers.</p>
           <p class="waiting">Waiting for at least 3 players to continue.</p>
-        {:else if allPlayersAnswered}
-          <button class="primary" disabled={busy} on:click={() => runAction("startVerification")}>Review answers</button>
         {:else}
+          <p class="waiting">You are the round master. You can submit your own answer, then review all answers.</p>
           <p class="waiting">Waiting for all players to submit answers.</p>
         {/if}
       {/if}
