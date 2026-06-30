@@ -26,6 +26,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.LogLevel != DefaultLogLevel {
 		t.Fatalf("expected default log level %q, got %q", DefaultLogLevel, cfg.LogLevel)
 	}
+	if cfg.GinMode != DefaultGinMode {
+		t.Fatalf("expected default gin mode %q, got %q", DefaultGinMode, cfg.GinMode)
+	}
 }
 
 func TestAddrListensOnConfiguredPort(t *testing.T) {
@@ -117,5 +120,25 @@ func TestLoadRejectsInvalidLogLevel(t *testing.T) {
 
 	if _, err := Load(); err == nil {
 		t.Fatal("expected invalid log level error")
+	}
+}
+
+func TestLoadUsesExplicitGinMode(t *testing.T) {
+	t.Setenv(EnvGinMode, "RELEASE")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	if cfg.GinMode != GinModeRelease {
+		t.Fatalf("expected gin mode %q, got %q", GinModeRelease, cfg.GinMode)
+	}
+}
+
+func TestLoadRejectsInvalidGinMode(t *testing.T) {
+	t.Setenv(EnvGinMode, "production")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("expected invalid gin mode error")
 	}
 }

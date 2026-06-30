@@ -96,6 +96,7 @@ go run .
 | `NIP_WORDLIST_PATH` | `words.txt` | Path to the word list used for generated game IDs. |
 | `NIP_LOG_FORMAT` | `json` | Log output format. Supported values: `json`, `text`, `text-color`. |
 | `NIP_LOG_LEVEL` | `info` | Minimum log level. Supported values: `trace`, `debug`, `info`, `warn`, `error`, `disabled`. Use `debug` for more granular backend diagnostics. |
+| `GIN_MODE` | `debug` | Gin runtime mode. Supported values: `debug`, `release`, `test`. Use `release` in production. Docker Compose defaults this to `release`. |
 
 The server binds to all interfaces. Use `NIP_PORT` to change the listen port, and control host/interface exposure through your container runtime or reverse proxy.
 
@@ -119,6 +120,7 @@ Override configuration with environment variables:
 docker run --rm -p 3000:3000 \
   -e NIP_PORT=3000 \
   -e NIP_MAX_CONCURRENT_GAMES=100 \
+  -e GIN_MODE=release \
   nobody-is-perfect-go
 ```
 

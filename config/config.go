@@ -14,12 +14,14 @@ const (
 	DefaultWordlistPath       = "words.txt"
 	DefaultLogFormat          = LogFormatJSON
 	DefaultLogLevel           = LogLevelInfo
+	DefaultGinMode            = GinModeDebug
 
 	EnvPort               = "NIP_PORT"
 	EnvMaxConcurrentGames = "NIP_MAX_CONCURRENT_GAMES"
 	EnvWordlistPath       = "NIP_WORDLIST_PATH"
 	EnvLogFormat          = "NIP_LOG_FORMAT"
 	EnvLogLevel           = "NIP_LOG_LEVEL"
+	EnvGinMode            = "GIN_MODE"
 
 	LogFormatJSON      = "json"
 	LogFormatText      = "text"
@@ -31,6 +33,10 @@ const (
 	LogLevelWarn     = "warn"
 	LogLevelError    = "error"
 	LogLevelDisabled = "disabled"
+
+	GinModeDebug   = "debug"
+	GinModeRelease = "release"
+	GinModeTest    = "test"
 )
 
 type Config struct {
@@ -39,6 +45,7 @@ type Config struct {
 	WordlistPath       string
 	LogFormat          string
 	LogLevel           string
+	GinMode            string
 }
 
 func Load() (Config, error) {
@@ -62,6 +69,10 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	ginMode, err := getGinModeEnv()
+	if err != nil {
+		return Config{}, err
+	}
 
 	return Config{
 		Port:               port,
@@ -69,6 +80,7 @@ func Load() (Config, error) {
 		WordlistPath:       wordlistPath,
 		LogFormat:          logFormat,
 		LogLevel:           logLevel,
+		GinMode:            ginMode,
 	}, nil
 }
 
@@ -119,5 +131,15 @@ func getLogLevelEnv() (string, error) {
 		return value, nil
 	default:
 		return "", fmt.Errorf("%s must be one of %s, %s, %s, %s, %s, %s", EnvLogLevel, LogLevelTrace, LogLevelDebug, LogLevelInfo, LogLevelWarn, LogLevelError, LogLevelDisabled)
+	}
+}
+
+func getGinModeEnv() (string, error) {
+	value := strings.ToLower(getEnv(EnvGinMode, DefaultGinMode))
+	switch value {
+	case GinModeDebug, GinModeRelease, GinModeTest:
+		return value, nil
+	default:
+		return "", fmt.Errorf("%s must be one of %s, %s, %s", EnvGinMode, GinModeDebug, GinModeRelease, GinModeTest)
 	}
 }

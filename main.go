@@ -39,6 +39,7 @@ func main() {
 		log.Fatal().Err(err).Msg("load config")
 	}
 	configureLogging(cfg.LogFormat, cfg.LogLevel)
+	gin.SetMode(cfg.GinMode)
 	server := api.NewServerWithGameService(game.NewServiceWithOptions(game.ServiceOptions{
 		WordlistPath:       cfg.WordlistPath,
 		MaxConcurrentGames: cfg.MaxConcurrentGames,
@@ -84,6 +85,7 @@ func main() {
 		Str("wordlist_path", cfg.WordlistPath).
 		Str("log_format", cfg.LogFormat).
 		Str("log_level", cfg.LogLevel).
+		Str("gin_mode", cfg.GinMode).
 		Msg("starting http server")
 	if err := runHTTPServer(s); err != nil {
 		log.Fatal().Err(err).Msg("http server stopped")
