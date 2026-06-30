@@ -1,0 +1,12 @@
+.git
+.github
+.idea
+.env
+*.out
+*.test
+*.exe
+*.exe~
+Dockerfile
+README.md
+LICENSE
+further-instructions.txt

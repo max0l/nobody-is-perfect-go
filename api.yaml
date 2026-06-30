@@ -1,58 +1,119 @@
-openapi: 3.0.4
+openapi: 3.0.3
+servers:
+  - url: http://localhost:8080
+    description: Local development server
 info:
   version: 0.0.1
   title: Nobody is Perfect - Go
   description: |-
     Simple Web application to make the sharing of written text easier.
-
 components:
   securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: UUID
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session
+#    BearerAuth:
+#      type: http
+#      scheme: bearer
+#      bearerFormat: UUID
 
   schemas:
-    ErrorResponse:
+    UUID:
+      type: string
+      minLength: 36
+      maxLength: 36
+      example: "123e4567-e89b-12d3-a456-426614174000"
+      x-go-type: uuid.UUID
+      x-go-type-import:
+        path: github.com/google/uuid
+
+    BadRequestResponse:
       type: object
       properties:
         error:
           type: string
-          example: "Some error message"
+          example: "Bad request, missing required fields"
 
-    HealthStatus:
+    StartGameBadRequestResponse:
       type: object
       properties:
-        status:
+        error:
           type: string
-          example: "OK"
+          example: "At least 3 players are required to start a game"
+
+    UnauthorizedResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Unauthorized, invalid or missing token"
+
+    ForbiddenResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Forbidden, you do not have permission to access this resource"
+
+    GameNotFoundResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Game not found, please check the game ID"
+
+    HealthStatus:
+      type: string
+      example: "OK"
+
+    SystemStatusResponse:
+      type: object
+      properties:
+        onlinePlayers:
+          type: integer
+          example: 3
+        players:
+          type: integer
+          example: 5
+        games:
+          type: integer
+          example: 2
 
     User:
       type: object
       properties:
         userUUID:
-          type: string
-          example: "123e4567-e89b-12d3-a456-426614174001"
+          $ref: "#/components/schemas/UUID"
         username:
           type: string
+          maxLength: 32
           example: "john_doe"
+        online:
+          type: boolean
+          example: true
 
     UserToken:
       type: object
       properties:
         userUUID:
-          type: string
-          example: "123e4567-e89b-12d3-a456-426614174000"
+          $ref: "#/components/schemas/UUID"
         userToken:
+          $ref: "#/components/schemas/UUID"
+
+    LogoutResponse:
+      type: object
+      properties:
+        message:
           type: string
-          example: "123e4567-e89b-12d3-a456-426614174000"
-          description: Used as Bearer token for authentication
+          example: "Logged out successfully"
 
     CreateUserRequest:
       type: object
       properties:
         username:
           type: string
+          maxLength: 32
           example: "john_doe"
 
     GameCreatedResponse:
@@ -74,13 +135,16 @@ components:
       properties:
         username:
           type: string
+          maxLength: 32
           example: "john_doe"
+        online:
+          type: boolean
+          example: true
         place:
           type: integer
           example: 1
         userUUID:
-          type: string
-          example: "123e4567-e89b-12d3-a456-426614174000"
+          $ref: "#/components/schemas/UUID"
 
     PlayOrderResponse:
       type: object
@@ -99,8 +163,7 @@ components:
             type: object
             properties:
               userUUID:
-                type: string
-                example: "123e4567-e89b-12d3-a456-426614174000"
+                $ref: "#/components/schemas/UUID"
               place:
                 type: integer
                 example: 1
@@ -140,19 +203,47 @@ components:
           type: string
           example: "Received the answer"
 
-    ValidAnswersSelectedResponse:
-      type: object
-      properties:
-        message:
-          type: string
-          example: "Valid answers selected successfully"
-
     VoteRecordedResponse:
       type: object
       properties:
         message:
           type: string
           example: "Vote recorded successfully"
+
+    VotingStartedResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Voting started successfully"
+
+    VerificationStartedResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Verification started successfully"
+
+    AnswerDeletedResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Answer deleted successfully"
+
+    PlayerKickedResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Player kicked successfully"
+
+    GameLeftResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Left the game successfully"
 
     GameStatusResponse:
       type: object
@@ -166,12 +257,32 @@ components:
           items:
             $ref: "#/components/schemas/User"
         gameMasterUUID:
-          type: string
-          example: "123e4567-e89b-12d3-a456-426614174000"
+          $ref: "#/components/schemas/UUID"
         receivedAnswers:
           type: integer
           example: 3
           description: Get the number of answers received from the players
+        receivedVotes:
+          type: integer
+          example: 2
+          description: Get the number of votes received from eligible voters
+        currentAnswer:
+          type: string
+          example: "This is my answer to the question"
+          description: The requesting player's current answer for the active round, if they already submitted one
+        currentAnswerUUID:
+          $ref: "#/components/schemas/UUID"
+        playerCount:
+          type: integer
+          example: 4
+        round:
+          type: integer
+          example: 1
+        roundStatus:
+          type: string
+          example: "answering"
+        roundMasterUUID:
+          $ref: "#/components/schemas/UUID"
 
     AnswerRequest:
       type: object
@@ -191,28 +302,26 @@ components:
     Answer:
       type: object
       properties:
-        answerUUID:
+        label:
           type: string
-          example: "123e4567-e89b-12d3-a456-426614174000"
+          example: "A"
+        answerUUID:
+          $ref: "#/components/schemas/UUID"
         answer:
           type: string
-          example: "A: This is my answer to the question"
-
-    SelectValidAnswersRequest:
-      type: object
-      properties:
-        validAnswers:
-          type: array
-          items:
-            type: string
-            example: "123e4567-e89b-12d3-a456-426614174000"
+          example: "This is my answer to the question"
+        userUUID:
+          $ref: "#/components/schemas/UUID"
+        username:
+          type: string
+          maxLength: 32
+          example: "john_doe"
 
     VoteRequest:
       type: object
       properties:
         answerUUID:
-          type: string
-          example: "123e4567-e89b-12d3-a456-426614174000"
+          $ref: "#/components/schemas/UUID"
 
     RevealVotesResponse:
       type: object
@@ -225,12 +334,20 @@ components:
     AnswerWithVotes:
       type: object
       properties:
-        answerUUID:
+        label:
           type: string
-          example: "123e4567-e89b-12d3-a456-426614174000"
+          example: "A"
+        answerUUID:
+          $ref: "#/components/schemas/UUID"
         answer:
           type: string
-          example: "A: This is my answer to the question"
+          example: "This is my answer to the question"
+        userUUID:
+          $ref: "#/components/schemas/UUID"
+        username:
+          type: string
+          maxLength: 32
+          example: "john_doe"
         votes:
           type: array
           items:
@@ -240,16 +357,17 @@ components:
       type: object
       properties:
         userUUID:
-          type: string
-          example: "123e4567-e89b-12d3-a456-426614174001"
+          $ref: "#/components/schemas/UUID"
         username:
           type: string
+          maxLength: 32
           example: "john_doe"
 
 paths:
   /api/health:
     get:
       summary: Health check
+      operationId: healthCheck
       responses:
         '200':
           description: OK
@@ -258,10 +376,24 @@ paths:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
 
+  /api/status:
+    get:
+      summary: Public server status
+      description: Returns aggregate in-memory game and player counts
+      operationId: getSystemStatus
+      responses:
+        '200':
+          description: Current aggregate server status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemStatusResponse"
+
   /api/create/user:
     post:
       summary: Create a new user
       description: Will create a new user with a UUID
+      operationId: createUser
       requestBody:
         required: true
         content:
@@ -275,13 +407,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserToken"
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForbiddenResponse"
+
+  /api/logout:
+    post:
+      summary: Log out the current user
+      description: Clears the session cookie if one is present
+      operationId: logout
+      responses:
+        '200':
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LogoutResponse"
 
   /api/create/game:
     post:
       summary: Create a game tied to a user
       description: Will create a new game for the user with a UUID
+      operationId: createGame
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       responses:
         '201':
           description: Game created
@@ -289,19 +447,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GameCreatedResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
 
   /api/join/{gameId}:
     post:
       summary: Join a game
       description: Will allow a user to join an existing game
+      operationId: joinGame
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -316,19 +487,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/JoinGameResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
   /api/order/{gameId}:
     get:
       summary: Gets the play order of the users for the game
       description: Will return the play order of the users for the game
+      operationId: getPlayOrder
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -343,24 +533,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PlayOrderResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
         '404':
           description: Game not found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
     put:
       summary: Set the play order for the game
       description: Will set the play order for the game
+      operationId: setPlayOrder
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -381,19 +584,135 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PlayOrderSetResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
+
+  /api/game/{gameId}/players/{userUUID}:
+    delete:
+      summary: Kick a player from a game
+      description: Only the user who created the game can kick players
+      operationId: kickPlayer
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "chug.value.funds"
+        - name: userUUID
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        '200':
+          description: Player kicked successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerKickedResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
+
+  /api/game/{gameId}/leave:
+    post:
+      summary: Leave a game
+      description: Removes the current user from the game. If the owner leaves, ownership transfers to the next player. Empty games are discarded.
+      operationId: leaveGame
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "chug.value.funds"
+      responses:
+        '200':
+          description: Left the game successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameLeftResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
   /api/game/{gameId}/start:
     post:
       summary: Start the game
       description: Will start the game for the users
+      operationId: startGame
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -408,19 +727,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GameStartedResponse"
+        '400':
+          description: Bad request, including when fewer than 3 players have joined
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StartGameBadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
   /api/game/{gameId}/status:
     get:
       summary: Get the status of the game
       description: Will return the status of the game including users and game master
+      operationId: getGameStatus
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -435,19 +773,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GameStatusResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
   /api/game/{gameId}/answers:
     post:
       summary: Send an answer for the game
       description: Will allow a user to send an answer for the game
+      operationId: sendAnswer
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -468,18 +825,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AnswerReceivedResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
     get:
       summary: Get the answers for the game
-      description: Will return the answers for the game only if you are game master
+      description: Returns answers for the round master during answering/verification and for players during voting/reveal
+      operationId: getAnswers
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -494,19 +870,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AnswersResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
-  /api/game/{gameId}/answers/selectValids:
-    put:
-      summary: Select valid answers for the game
-      description: Will allow the game master to select valid answers for the game
+  /api/game/{gameId}/answers/{answerUUID}:
+    delete:
+      summary: Delete an answer during verification
+      description: Current round master can delete submitted answers before voting starts
+      operationId: deleteAnswer
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -514,32 +909,142 @@ paths:
           schema:
             type: string
             example: "chug.value.funds"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/SelectValidAnswersRequest"
+        - name: answerUUID
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
       responses:
         '200':
-          description: Valid answers selected successfully
+          description: Answer deleted successfully
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ValidAnswersSelectedResponse"
+                $ref: "#/components/schemas/AnswerDeletedResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game or answer not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
+
+  /api/game/{gameId}/startVerification:
+    post:
+      summary: Start verification for the current round
+      description: Current round master or game creator starts answer verification before voting
+      operationId: startVerification
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "chug.value.funds"
+      responses:
+        '200':
+          description: Verification started successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationStartedResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
+
+  /api/game/{gameId}/startVoting:
+    post:
+      summary: Start voting for the current round
+      description: Current round master or game creator starts the voting phase manually
+      operationId: startVoting
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "chug.value.funds"
+      responses:
+        '200':
+          description: Voting started successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VotingStartedResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
   /api/game/{gameId}/vote:
     post:
       summary: Vote for an answer in the game
       description: Will allow a user to vote for an answer in the game
+      operationId: voteForAnswer
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -560,19 +1065,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/VoteRecordedResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
   /api/game/{gameId}/reveal:
-    get:
-      summary: Reveal the answers and votes in the game
-      description: Will reveal the answers and votes in the game
+    post:
+      summary: Reveal votes for the current round
+      description: Current round master or game creator manually reveals all votes
+      operationId: triggerReveal
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -587,19 +1111,83 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RevealVotesResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
+
+    get:
+      summary: Reveal the answers and votes in the game
+      description: Will return the revealed answers and votes in the game
+      operationId: revealVotes
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "chug.value.funds"
+      responses:
+        '200':
+          description: Answers and votes revealed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevealVotesResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
   /api/game/{gameId}/next:
     post:
       summary: Move to the next round in the game
       description: Will allow the game to move to the next round
+      operationId: nextRound
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -614,19 +1202,38 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/NextRoundResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
 
   /api/game/{gameId}/finish:
     post:
       summary: Finish the game
       description: Will finish the game and clean up resources
+      operationId: finishGame
       security:
-        - BearerAuth: []
+        - sessionCookie: []
       parameters:
         - name: gameId
           in: path
@@ -641,9 +1248,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GameFinishedResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
         '403':
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"

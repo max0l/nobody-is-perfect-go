@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+
+if ! command -v task >/dev/null 2>&1; then
+  echo "go-task is required for pre-commit checks." >&2
+  echo "Install it with: go install github.com/go-task/task/v3/cmd/task@latest" >&2
+  exit 1
+fi
+
+task verify

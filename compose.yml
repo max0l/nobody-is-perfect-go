@@ -1,0 +1,12 @@
+services:
+  nobody-is-perfect-go:
+    build: .
+    image: ghcr.io/max0l/nobody-is-perfect-go:latest
+    environment:
+      NIP_HOST: ${NIP_HOST:-0.0.0.0}
+      NIP_PORT: ${NIP_PORT:-8080}
+      NIP_API_BASE_URL: ${NIP_API_BASE_URL:-http://localhost:8080}
+      NIP_MAX_CONCURRENT_GAMES: ${NIP_MAX_CONCURRENT_GAMES:-100}
+      NIP_WORDLIST_PATH: ${NIP_WORDLIST_PATH:-/app/words.txt}
+    ports:
+      - "${NIP_HOST:-0.0.0.0}:${NIP_PORT:-8080}:${NIP_PORT:-8080}"

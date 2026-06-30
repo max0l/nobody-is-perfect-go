@@ -6,7 +6,9 @@ package api
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -16,55 +18,77 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/gin-gonic/gin"
 	"github.com/oapi-codegen/runtime"
+	strictgin "github.com/oapi-codegen/runtime/strictmiddleware/gin"
 )
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// Create a game tied to a user
-	// (GET /api/create/game)
-	GetApiCreateGame(c *gin.Context)
+	// (POST /api/create/game)
+	CreateGame(c *gin.Context)
 	// Create a new user
 	// (POST /api/create/user)
-	PostApiCreateUser(c *gin.Context)
+	CreateUser(c *gin.Context)
 	// Get the answers for the game
 	// (GET /api/game/{gameId}/answers)
-	GetApiGameGameIdAnswers(c *gin.Context, gameId string)
+	GetAnswers(c *gin.Context, gameId string)
 	// Send an answer for the game
 	// (POST /api/game/{gameId}/answers)
-	PostApiGameGameIdAnswers(c *gin.Context, gameId string)
-	// Select valid answers for the game
-	// (POST /api/game/{gameId}/answers/selectValids)
-	PostApiGameGameIdAnswersSelectValids(c *gin.Context, gameId string)
+	SendAnswer(c *gin.Context, gameId string)
+	// Delete an answer during verification
+	// (DELETE /api/game/{gameId}/answers/{answerUUID})
+	DeleteAnswer(c *gin.Context, gameId string, answerUUID UUID)
 	// Finish the game
-	// (GET /api/game/{gameId}/finish)
-	GetApiGameGameIdFinish(c *gin.Context, gameId string)
+	// (POST /api/game/{gameId}/finish)
+	FinishGame(c *gin.Context, gameId string)
+	// Leave a game
+	// (POST /api/game/{gameId}/leave)
+	LeaveGame(c *gin.Context, gameId string)
 	// Move to the next round in the game
-	// (GET /api/game/{gameId}/next)
-	GetApiGameGameIdNext(c *gin.Context, gameId string)
+	// (POST /api/game/{gameId}/next)
+	NextRound(c *gin.Context, gameId string)
+	// Kick a player from a game
+	// (DELETE /api/game/{gameId}/players/{userUUID})
+	KickPlayer(c *gin.Context, gameId string, userUUID UUID)
 	// Reveal the answers and votes in the game
 	// (GET /api/game/{gameId}/reveal)
-	GetApiGameGameIdReveal(c *gin.Context, gameId string)
+	RevealVotes(c *gin.Context, gameId string)
+	// Reveal votes for the current round
+	// (POST /api/game/{gameId}/reveal)
+	TriggerReveal(c *gin.Context, gameId string)
 	// Start the game
-	// (GET /api/game/{gameId}/start)
-	GetApiGameGameIdStart(c *gin.Context, gameId string)
+	// (POST /api/game/{gameId}/start)
+	StartGame(c *gin.Context, gameId string)
+	// Start verification for the current round
+	// (POST /api/game/{gameId}/startVerification)
+	StartVerification(c *gin.Context, gameId string)
+	// Start voting for the current round
+	// (POST /api/game/{gameId}/startVoting)
+	StartVoting(c *gin.Context, gameId string)
 	// Get the status of the game
 	// (GET /api/game/{gameId}/status)
-	GetApiGameGameIdStatus(c *gin.Context, gameId string)
+	GetGameStatus(c *gin.Context, gameId string)
 	// Vote for an answer in the game
 	// (POST /api/game/{gameId}/vote)
-	PostApiGameGameIdVote(c *gin.Context, gameId string)
+	VoteForAnswer(c *gin.Context, gameId string)
 	// Health check
 	// (GET /api/health)
-	GetApiHealth(c *gin.Context)
+	HealthCheck(c *gin.Context)
 	// Join a game
-	// (GET /api/join/{gameId})
-	GetApiJoinGameId(c *gin.Context, gameId string)
+	// (POST /api/join/{gameId})
+	JoinGame(c *gin.Context, gameId string)
+	// Log out the current user
+	// (POST /api/logout)
+	Logout(c *gin.Context)
 	// Gets the play order of the users for the game
 	// (GET /api/order/{gameId})
-	GetApiOrderGameId(c *gin.Context, gameId string)
+	GetPlayOrder(c *gin.Context, gameId string)
 	// Set the play order for the game
 	// (PUT /api/order/{gameId})
-	PutApiOrderGameId(c *gin.Context, gameId string)
+	SetPlayOrder(c *gin.Context, gameId string)
+	// Public server status
+	// (GET /api/status)
+	GetSystemStatus(c *gin.Context)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -76,23 +100,10 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(c *gin.Context)
 
-// GetApiCreateGame operation middleware
-func (siw *ServerInterfaceWrapper) GetApiCreateGame(c *gin.Context) {
+// CreateGame operation middleware
+func (siw *ServerInterfaceWrapper) CreateGame(c *gin.Context) {
 
-	c.Set(BearerAuthScopes, []string{})
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.GetApiCreateGame(c)
-}
-
-// PostApiCreateUser operation middleware
-func (siw *ServerInterfaceWrapper) PostApiCreateUser(c *gin.Context) {
+	c.Set(SessionCookieScopes, []string{})
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -101,11 +112,24 @@ func (siw *ServerInterfaceWrapper) PostApiCreateUser(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.PostApiCreateUser(c)
+	siw.Handler.CreateGame(c)
 }
 
-// GetApiGameGameIdAnswers operation middleware
-func (siw *ServerInterfaceWrapper) GetApiGameGameIdAnswers(c *gin.Context) {
+// CreateUser operation middleware
+func (siw *ServerInterfaceWrapper) CreateUser(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.CreateUser(c)
+}
+
+// GetAnswers operation middleware
+func (siw *ServerInterfaceWrapper) GetAnswers(c *gin.Context) {
 
 	var err error
 
@@ -118,7 +142,7 @@ func (siw *ServerInterfaceWrapper) GetApiGameGameIdAnswers(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(SessionCookieScopes, []string{})
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -127,11 +151,11 @@ func (siw *ServerInterfaceWrapper) GetApiGameGameIdAnswers(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.GetApiGameGameIdAnswers(c, gameId)
+	siw.Handler.GetAnswers(c, gameId)
 }
 
-// PostApiGameGameIdAnswers operation middleware
-func (siw *ServerInterfaceWrapper) PostApiGameGameIdAnswers(c *gin.Context) {
+// SendAnswer operation middleware
+func (siw *ServerInterfaceWrapper) SendAnswer(c *gin.Context) {
 
 	var err error
 
@@ -144,7 +168,7 @@ func (siw *ServerInterfaceWrapper) PostApiGameGameIdAnswers(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(SessionCookieScopes, []string{})
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -153,11 +177,11 @@ func (siw *ServerInterfaceWrapper) PostApiGameGameIdAnswers(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.PostApiGameGameIdAnswers(c, gameId)
+	siw.Handler.SendAnswer(c, gameId)
 }
 
-// PostApiGameGameIdAnswersSelectValids operation middleware
-func (siw *ServerInterfaceWrapper) PostApiGameGameIdAnswersSelectValids(c *gin.Context) {
+// DeleteAnswer operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAnswer(c *gin.Context) {
 
 	var err error
 
@@ -170,7 +194,16 @@ func (siw *ServerInterfaceWrapper) PostApiGameGameIdAnswersSelectValids(c *gin.C
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	// ------------- Path parameter "answerUUID" -------------
+	var answerUUID UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "answerUUID", c.Param("answerUUID"), &answerUUID, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter answerUUID: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(SessionCookieScopes, []string{})
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -179,11 +212,11 @@ func (siw *ServerInterfaceWrapper) PostApiGameGameIdAnswersSelectValids(c *gin.C
 		}
 	}
 
-	siw.Handler.PostApiGameGameIdAnswersSelectValids(c, gameId)
+	siw.Handler.DeleteAnswer(c, gameId, answerUUID)
 }
 
-// GetApiGameGameIdFinish operation middleware
-func (siw *ServerInterfaceWrapper) GetApiGameGameIdFinish(c *gin.Context) {
+// FinishGame operation middleware
+func (siw *ServerInterfaceWrapper) FinishGame(c *gin.Context) {
 
 	var err error
 
@@ -196,7 +229,7 @@ func (siw *ServerInterfaceWrapper) GetApiGameGameIdFinish(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(SessionCookieScopes, []string{})
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -205,11 +238,11 @@ func (siw *ServerInterfaceWrapper) GetApiGameGameIdFinish(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.GetApiGameGameIdFinish(c, gameId)
+	siw.Handler.FinishGame(c, gameId)
 }
 
-// GetApiGameGameIdNext operation middleware
-func (siw *ServerInterfaceWrapper) GetApiGameGameIdNext(c *gin.Context) {
+// LeaveGame operation middleware
+func (siw *ServerInterfaceWrapper) LeaveGame(c *gin.Context) {
 
 	var err error
 
@@ -222,7 +255,7 @@ func (siw *ServerInterfaceWrapper) GetApiGameGameIdNext(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(SessionCookieScopes, []string{})
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -231,11 +264,11 @@ func (siw *ServerInterfaceWrapper) GetApiGameGameIdNext(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.GetApiGameGameIdNext(c, gameId)
+	siw.Handler.LeaveGame(c, gameId)
 }
 
-// GetApiGameGameIdReveal operation middleware
-func (siw *ServerInterfaceWrapper) GetApiGameGameIdReveal(c *gin.Context) {
+// NextRound operation middleware
+func (siw *ServerInterfaceWrapper) NextRound(c *gin.Context) {
 
 	var err error
 
@@ -248,7 +281,7 @@ func (siw *ServerInterfaceWrapper) GetApiGameGameIdReveal(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(SessionCookieScopes, []string{})
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -257,11 +290,11 @@ func (siw *ServerInterfaceWrapper) GetApiGameGameIdReveal(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.GetApiGameGameIdReveal(c, gameId)
+	siw.Handler.NextRound(c, gameId)
 }
 
-// GetApiGameGameIdStart operation middleware
-func (siw *ServerInterfaceWrapper) GetApiGameGameIdStart(c *gin.Context) {
+// KickPlayer operation middleware
+func (siw *ServerInterfaceWrapper) KickPlayer(c *gin.Context) {
 
 	var err error
 
@@ -274,7 +307,16 @@ func (siw *ServerInterfaceWrapper) GetApiGameGameIdStart(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	// ------------- Path parameter "userUUID" -------------
+	var userUUID UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userUUID", c.Param("userUUID"), &userUUID, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter userUUID: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(SessionCookieScopes, []string{})
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -283,11 +325,11 @@ func (siw *ServerInterfaceWrapper) GetApiGameGameIdStart(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.GetApiGameGameIdStart(c, gameId)
+	siw.Handler.KickPlayer(c, gameId, userUUID)
 }
 
-// GetApiGameGameIdStatus operation middleware
-func (siw *ServerInterfaceWrapper) GetApiGameGameIdStatus(c *gin.Context) {
+// RevealVotes operation middleware
+func (siw *ServerInterfaceWrapper) RevealVotes(c *gin.Context) {
 
 	var err error
 
@@ -300,7 +342,7 @@ func (siw *ServerInterfaceWrapper) GetApiGameGameIdStatus(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(SessionCookieScopes, []string{})
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -309,11 +351,11 @@ func (siw *ServerInterfaceWrapper) GetApiGameGameIdStatus(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.GetApiGameGameIdStatus(c, gameId)
+	siw.Handler.RevealVotes(c, gameId)
 }
 
-// PostApiGameGameIdVote operation middleware
-func (siw *ServerInterfaceWrapper) PostApiGameGameIdVote(c *gin.Context) {
+// TriggerReveal operation middleware
+func (siw *ServerInterfaceWrapper) TriggerReveal(c *gin.Context) {
 
 	var err error
 
@@ -326,7 +368,7 @@ func (siw *ServerInterfaceWrapper) PostApiGameGameIdVote(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(SessionCookieScopes, []string{})
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -335,24 +377,11 @@ func (siw *ServerInterfaceWrapper) PostApiGameGameIdVote(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.PostApiGameGameIdVote(c, gameId)
+	siw.Handler.TriggerReveal(c, gameId)
 }
 
-// GetApiHealth operation middleware
-func (siw *ServerInterfaceWrapper) GetApiHealth(c *gin.Context) {
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-		if c.IsAborted() {
-			return
-		}
-	}
-
-	siw.Handler.GetApiHealth(c)
-}
-
-// GetApiJoinGameId operation middleware
-func (siw *ServerInterfaceWrapper) GetApiJoinGameId(c *gin.Context) {
+// StartGame operation middleware
+func (siw *ServerInterfaceWrapper) StartGame(c *gin.Context) {
 
 	var err error
 
@@ -365,7 +394,7 @@ func (siw *ServerInterfaceWrapper) GetApiJoinGameId(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(SessionCookieScopes, []string{})
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -374,11 +403,11 @@ func (siw *ServerInterfaceWrapper) GetApiJoinGameId(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.GetApiJoinGameId(c, gameId)
+	siw.Handler.StartGame(c, gameId)
 }
 
-// GetApiOrderGameId operation middleware
-func (siw *ServerInterfaceWrapper) GetApiOrderGameId(c *gin.Context) {
+// StartVerification operation middleware
+func (siw *ServerInterfaceWrapper) StartVerification(c *gin.Context) {
 
 	var err error
 
@@ -391,7 +420,7 @@ func (siw *ServerInterfaceWrapper) GetApiOrderGameId(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(SessionCookieScopes, []string{})
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -400,11 +429,11 @@ func (siw *ServerInterfaceWrapper) GetApiOrderGameId(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.GetApiOrderGameId(c, gameId)
+	siw.Handler.StartVerification(c, gameId)
 }
 
-// PutApiOrderGameId operation middleware
-func (siw *ServerInterfaceWrapper) PutApiOrderGameId(c *gin.Context) {
+// StartVoting operation middleware
+func (siw *ServerInterfaceWrapper) StartVoting(c *gin.Context) {
 
 	var err error
 
@@ -417,7 +446,7 @@ func (siw *ServerInterfaceWrapper) PutApiOrderGameId(c *gin.Context) {
 		return
 	}
 
-	c.Set(BearerAuthScopes, []string{})
+	c.Set(SessionCookieScopes, []string{})
 
 	for _, middleware := range siw.HandlerMiddlewares {
 		middleware(c)
@@ -426,7 +455,176 @@ func (siw *ServerInterfaceWrapper) PutApiOrderGameId(c *gin.Context) {
 		}
 	}
 
-	siw.Handler.PutApiOrderGameId(c, gameId)
+	siw.Handler.StartVoting(c, gameId)
+}
+
+// GetGameStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetGameStatus(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "gameId" -------------
+	var gameId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "gameId", c.Param("gameId"), &gameId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter gameId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(SessionCookieScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetGameStatus(c, gameId)
+}
+
+// VoteForAnswer operation middleware
+func (siw *ServerInterfaceWrapper) VoteForAnswer(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "gameId" -------------
+	var gameId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "gameId", c.Param("gameId"), &gameId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter gameId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(SessionCookieScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.VoteForAnswer(c, gameId)
+}
+
+// HealthCheck operation middleware
+func (siw *ServerInterfaceWrapper) HealthCheck(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.HealthCheck(c)
+}
+
+// JoinGame operation middleware
+func (siw *ServerInterfaceWrapper) JoinGame(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "gameId" -------------
+	var gameId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "gameId", c.Param("gameId"), &gameId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter gameId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(SessionCookieScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.JoinGame(c, gameId)
+}
+
+// Logout operation middleware
+func (siw *ServerInterfaceWrapper) Logout(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.Logout(c)
+}
+
+// GetPlayOrder operation middleware
+func (siw *ServerInterfaceWrapper) GetPlayOrder(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "gameId" -------------
+	var gameId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "gameId", c.Param("gameId"), &gameId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter gameId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(SessionCookieScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetPlayOrder(c, gameId)
+}
+
+// SetPlayOrder operation middleware
+func (siw *ServerInterfaceWrapper) SetPlayOrder(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "gameId" -------------
+	var gameId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "gameId", c.Param("gameId"), &gameId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter gameId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(SessionCookieScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.SetPlayOrder(c, gameId)
+}
+
+// GetSystemStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetSystemStatus(c *gin.Context) {
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.GetSystemStatus(c)
 }
 
 // GinServerOptions provides options for the Gin server.
@@ -456,56 +654,1814 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
-	router.GET(options.BaseURL+"/api/create/game", wrapper.GetApiCreateGame)
-	router.POST(options.BaseURL+"/api/create/user", wrapper.PostApiCreateUser)
-	router.GET(options.BaseURL+"/api/game/:gameId/answers", wrapper.GetApiGameGameIdAnswers)
-	router.POST(options.BaseURL+"/api/game/:gameId/answers", wrapper.PostApiGameGameIdAnswers)
-	router.POST(options.BaseURL+"/api/game/:gameId/answers/selectValids", wrapper.PostApiGameGameIdAnswersSelectValids)
-	router.GET(options.BaseURL+"/api/game/:gameId/finish", wrapper.GetApiGameGameIdFinish)
-	router.GET(options.BaseURL+"/api/game/:gameId/next", wrapper.GetApiGameGameIdNext)
-	router.GET(options.BaseURL+"/api/game/:gameId/reveal", wrapper.GetApiGameGameIdReveal)
-	router.GET(options.BaseURL+"/api/game/:gameId/start", wrapper.GetApiGameGameIdStart)
-	router.GET(options.BaseURL+"/api/game/:gameId/status", wrapper.GetApiGameGameIdStatus)
-	router.POST(options.BaseURL+"/api/game/:gameId/vote", wrapper.PostApiGameGameIdVote)
-	router.GET(options.BaseURL+"/api/health", wrapper.GetApiHealth)
-	router.GET(options.BaseURL+"/api/join/:gameId", wrapper.GetApiJoinGameId)
-	router.GET(options.BaseURL+"/api/order/:gameId", wrapper.GetApiOrderGameId)
-	router.PUT(options.BaseURL+"/api/order/:gameId", wrapper.PutApiOrderGameId)
+	router.POST(options.BaseURL+"/api/create/game", wrapper.CreateGame)
+	router.POST(options.BaseURL+"/api/create/user", wrapper.CreateUser)
+	router.GET(options.BaseURL+"/api/game/:gameId/answers", wrapper.GetAnswers)
+	router.POST(options.BaseURL+"/api/game/:gameId/answers", wrapper.SendAnswer)
+	router.DELETE(options.BaseURL+"/api/game/:gameId/answers/:answerUUID", wrapper.DeleteAnswer)
+	router.POST(options.BaseURL+"/api/game/:gameId/finish", wrapper.FinishGame)
+	router.POST(options.BaseURL+"/api/game/:gameId/leave", wrapper.LeaveGame)
+	router.POST(options.BaseURL+"/api/game/:gameId/next", wrapper.NextRound)
+	router.DELETE(options.BaseURL+"/api/game/:gameId/players/:userUUID", wrapper.KickPlayer)
+	router.GET(options.BaseURL+"/api/game/:gameId/reveal", wrapper.RevealVotes)
+	router.POST(options.BaseURL+"/api/game/:gameId/reveal", wrapper.TriggerReveal)
+	router.POST(options.BaseURL+"/api/game/:gameId/start", wrapper.StartGame)
+	router.POST(options.BaseURL+"/api/game/:gameId/startVerification", wrapper.StartVerification)
+	router.POST(options.BaseURL+"/api/game/:gameId/startVoting", wrapper.StartVoting)
+	router.GET(options.BaseURL+"/api/game/:gameId/status", wrapper.GetGameStatus)
+	router.POST(options.BaseURL+"/api/game/:gameId/vote", wrapper.VoteForAnswer)
+	router.GET(options.BaseURL+"/api/health", wrapper.HealthCheck)
+	router.POST(options.BaseURL+"/api/join/:gameId", wrapper.JoinGame)
+	router.POST(options.BaseURL+"/api/logout", wrapper.Logout)
+	router.GET(options.BaseURL+"/api/order/:gameId", wrapper.GetPlayOrder)
+	router.PUT(options.BaseURL+"/api/order/:gameId", wrapper.SetPlayOrder)
+	router.GET(options.BaseURL+"/api/status", wrapper.GetSystemStatus)
+}
+
+type CreateGameRequestObject struct {
+}
+
+type CreateGameResponseObject interface {
+	VisitCreateGameResponse(w http.ResponseWriter) error
+}
+
+type CreateGame201JSONResponse GameCreatedResponse
+
+func (response CreateGame201JSONResponse) VisitCreateGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateGame400JSONResponse BadRequestResponse
+
+func (response CreateGame400JSONResponse) VisitCreateGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateGame401JSONResponse UnauthorizedResponse
+
+func (response CreateGame401JSONResponse) VisitCreateGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateGame403JSONResponse ForbiddenResponse
+
+func (response CreateGame403JSONResponse) VisitCreateGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateUserRequestObject struct {
+	Body *CreateUserJSONRequestBody
+}
+
+type CreateUserResponseObject interface {
+	VisitCreateUserResponse(w http.ResponseWriter) error
+}
+
+type CreateUser201JSONResponse UserToken
+
+func (response CreateUser201JSONResponse) VisitCreateUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateUser400JSONResponse BadRequestResponse
+
+func (response CreateUser400JSONResponse) VisitCreateUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type CreateUser403JSONResponse ForbiddenResponse
+
+func (response CreateUser403JSONResponse) VisitCreateUserResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAnswersRequestObject struct {
+	GameId string `json:"gameId"`
+}
+
+type GetAnswersResponseObject interface {
+	VisitGetAnswersResponse(w http.ResponseWriter) error
+}
+
+type GetAnswers200JSONResponse AnswersResponse
+
+func (response GetAnswers200JSONResponse) VisitGetAnswersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAnswers400JSONResponse BadRequestResponse
+
+func (response GetAnswers400JSONResponse) VisitGetAnswersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAnswers401JSONResponse UnauthorizedResponse
+
+func (response GetAnswers401JSONResponse) VisitGetAnswersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAnswers403JSONResponse ForbiddenResponse
+
+func (response GetAnswers403JSONResponse) VisitGetAnswersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetAnswers404JSONResponse GameNotFoundResponse
+
+func (response GetAnswers404JSONResponse) VisitGetAnswersResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SendAnswerRequestObject struct {
+	GameId string `json:"gameId"`
+	Body   *SendAnswerJSONRequestBody
+}
+
+type SendAnswerResponseObject interface {
+	VisitSendAnswerResponse(w http.ResponseWriter) error
+}
+
+type SendAnswer200JSONResponse AnswerReceivedResponse
+
+func (response SendAnswer200JSONResponse) VisitSendAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SendAnswer400JSONResponse BadRequestResponse
+
+func (response SendAnswer400JSONResponse) VisitSendAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SendAnswer401JSONResponse UnauthorizedResponse
+
+func (response SendAnswer401JSONResponse) VisitSendAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SendAnswer403JSONResponse ForbiddenResponse
+
+func (response SendAnswer403JSONResponse) VisitSendAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SendAnswer404JSONResponse GameNotFoundResponse
+
+func (response SendAnswer404JSONResponse) VisitSendAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAnswerRequestObject struct {
+	GameId     string `json:"gameId"`
+	AnswerUUID UUID   `json:"answerUUID"`
+}
+
+type DeleteAnswerResponseObject interface {
+	VisitDeleteAnswerResponse(w http.ResponseWriter) error
+}
+
+type DeleteAnswer200JSONResponse AnswerDeletedResponse
+
+func (response DeleteAnswer200JSONResponse) VisitDeleteAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAnswer400JSONResponse BadRequestResponse
+
+func (response DeleteAnswer400JSONResponse) VisitDeleteAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAnswer401JSONResponse UnauthorizedResponse
+
+func (response DeleteAnswer401JSONResponse) VisitDeleteAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAnswer403JSONResponse ForbiddenResponse
+
+func (response DeleteAnswer403JSONResponse) VisitDeleteAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAnswer404JSONResponse GameNotFoundResponse
+
+func (response DeleteAnswer404JSONResponse) VisitDeleteAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type FinishGameRequestObject struct {
+	GameId string `json:"gameId"`
+}
+
+type FinishGameResponseObject interface {
+	VisitFinishGameResponse(w http.ResponseWriter) error
+}
+
+type FinishGame200JSONResponse GameFinishedResponse
+
+func (response FinishGame200JSONResponse) VisitFinishGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type FinishGame400JSONResponse BadRequestResponse
+
+func (response FinishGame400JSONResponse) VisitFinishGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type FinishGame401JSONResponse UnauthorizedResponse
+
+func (response FinishGame401JSONResponse) VisitFinishGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type FinishGame403JSONResponse ForbiddenResponse
+
+func (response FinishGame403JSONResponse) VisitFinishGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type FinishGame404JSONResponse GameNotFoundResponse
+
+func (response FinishGame404JSONResponse) VisitFinishGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LeaveGameRequestObject struct {
+	GameId string `json:"gameId"`
+}
+
+type LeaveGameResponseObject interface {
+	VisitLeaveGameResponse(w http.ResponseWriter) error
+}
+
+type LeaveGame200JSONResponse GameLeftResponse
+
+func (response LeaveGame200JSONResponse) VisitLeaveGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LeaveGame400JSONResponse BadRequestResponse
+
+func (response LeaveGame400JSONResponse) VisitLeaveGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LeaveGame401JSONResponse UnauthorizedResponse
+
+func (response LeaveGame401JSONResponse) VisitLeaveGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LeaveGame403JSONResponse ForbiddenResponse
+
+func (response LeaveGame403JSONResponse) VisitLeaveGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LeaveGame404JSONResponse GameNotFoundResponse
+
+func (response LeaveGame404JSONResponse) VisitLeaveGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type NextRoundRequestObject struct {
+	GameId string `json:"gameId"`
+}
+
+type NextRoundResponseObject interface {
+	VisitNextRoundResponse(w http.ResponseWriter) error
+}
+
+type NextRound200JSONResponse NextRoundResponse
+
+func (response NextRound200JSONResponse) VisitNextRoundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type NextRound400JSONResponse BadRequestResponse
+
+func (response NextRound400JSONResponse) VisitNextRoundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type NextRound401JSONResponse UnauthorizedResponse
+
+func (response NextRound401JSONResponse) VisitNextRoundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type NextRound403JSONResponse ForbiddenResponse
+
+func (response NextRound403JSONResponse) VisitNextRoundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type NextRound404JSONResponse GameNotFoundResponse
+
+func (response NextRound404JSONResponse) VisitNextRoundResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type KickPlayerRequestObject struct {
+	GameId   string `json:"gameId"`
+	UserUUID UUID   `json:"userUUID"`
+}
+
+type KickPlayerResponseObject interface {
+	VisitKickPlayerResponse(w http.ResponseWriter) error
+}
+
+type KickPlayer200JSONResponse PlayerKickedResponse
+
+func (response KickPlayer200JSONResponse) VisitKickPlayerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type KickPlayer400JSONResponse BadRequestResponse
+
+func (response KickPlayer400JSONResponse) VisitKickPlayerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type KickPlayer401JSONResponse UnauthorizedResponse
+
+func (response KickPlayer401JSONResponse) VisitKickPlayerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type KickPlayer403JSONResponse ForbiddenResponse
+
+func (response KickPlayer403JSONResponse) VisitKickPlayerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type KickPlayer404JSONResponse GameNotFoundResponse
+
+func (response KickPlayer404JSONResponse) VisitKickPlayerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RevealVotesRequestObject struct {
+	GameId string `json:"gameId"`
+}
+
+type RevealVotesResponseObject interface {
+	VisitRevealVotesResponse(w http.ResponseWriter) error
+}
+
+type RevealVotes200JSONResponse RevealVotesResponse
+
+func (response RevealVotes200JSONResponse) VisitRevealVotesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RevealVotes400JSONResponse BadRequestResponse
+
+func (response RevealVotes400JSONResponse) VisitRevealVotesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RevealVotes401JSONResponse UnauthorizedResponse
+
+func (response RevealVotes401JSONResponse) VisitRevealVotesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RevealVotes403JSONResponse ForbiddenResponse
+
+func (response RevealVotes403JSONResponse) VisitRevealVotesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type RevealVotes404JSONResponse GameNotFoundResponse
+
+func (response RevealVotes404JSONResponse) VisitRevealVotesResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type TriggerRevealRequestObject struct {
+	GameId string `json:"gameId"`
+}
+
+type TriggerRevealResponseObject interface {
+	VisitTriggerRevealResponse(w http.ResponseWriter) error
+}
+
+type TriggerReveal200JSONResponse RevealVotesResponse
+
+func (response TriggerReveal200JSONResponse) VisitTriggerRevealResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type TriggerReveal400JSONResponse BadRequestResponse
+
+func (response TriggerReveal400JSONResponse) VisitTriggerRevealResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type TriggerReveal401JSONResponse UnauthorizedResponse
+
+func (response TriggerReveal401JSONResponse) VisitTriggerRevealResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type TriggerReveal403JSONResponse ForbiddenResponse
+
+func (response TriggerReveal403JSONResponse) VisitTriggerRevealResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type TriggerReveal404JSONResponse GameNotFoundResponse
+
+func (response TriggerReveal404JSONResponse) VisitTriggerRevealResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartGameRequestObject struct {
+	GameId string `json:"gameId"`
+}
+
+type StartGameResponseObject interface {
+	VisitStartGameResponse(w http.ResponseWriter) error
+}
+
+type StartGame200JSONResponse GameStartedResponse
+
+func (response StartGame200JSONResponse) VisitStartGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartGame400JSONResponse StartGameBadRequestResponse
+
+func (response StartGame400JSONResponse) VisitStartGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartGame401JSONResponse UnauthorizedResponse
+
+func (response StartGame401JSONResponse) VisitStartGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartGame403JSONResponse ForbiddenResponse
+
+func (response StartGame403JSONResponse) VisitStartGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartGame404JSONResponse GameNotFoundResponse
+
+func (response StartGame404JSONResponse) VisitStartGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartVerificationRequestObject struct {
+	GameId string `json:"gameId"`
+}
+
+type StartVerificationResponseObject interface {
+	VisitStartVerificationResponse(w http.ResponseWriter) error
+}
+
+type StartVerification200JSONResponse VerificationStartedResponse
+
+func (response StartVerification200JSONResponse) VisitStartVerificationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartVerification400JSONResponse BadRequestResponse
+
+func (response StartVerification400JSONResponse) VisitStartVerificationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartVerification401JSONResponse UnauthorizedResponse
+
+func (response StartVerification401JSONResponse) VisitStartVerificationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartVerification403JSONResponse ForbiddenResponse
+
+func (response StartVerification403JSONResponse) VisitStartVerificationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartVerification404JSONResponse GameNotFoundResponse
+
+func (response StartVerification404JSONResponse) VisitStartVerificationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartVotingRequestObject struct {
+	GameId string `json:"gameId"`
+}
+
+type StartVotingResponseObject interface {
+	VisitStartVotingResponse(w http.ResponseWriter) error
+}
+
+type StartVoting200JSONResponse VotingStartedResponse
+
+func (response StartVoting200JSONResponse) VisitStartVotingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartVoting400JSONResponse BadRequestResponse
+
+func (response StartVoting400JSONResponse) VisitStartVotingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartVoting401JSONResponse UnauthorizedResponse
+
+func (response StartVoting401JSONResponse) VisitStartVotingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartVoting403JSONResponse ForbiddenResponse
+
+func (response StartVoting403JSONResponse) VisitStartVotingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartVoting404JSONResponse GameNotFoundResponse
+
+func (response StartVoting404JSONResponse) VisitStartVotingResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetGameStatusRequestObject struct {
+	GameId string `json:"gameId"`
+}
+
+type GetGameStatusResponseObject interface {
+	VisitGetGameStatusResponse(w http.ResponseWriter) error
+}
+
+type GetGameStatus200JSONResponse GameStatusResponse
+
+func (response GetGameStatus200JSONResponse) VisitGetGameStatusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetGameStatus400JSONResponse BadRequestResponse
+
+func (response GetGameStatus400JSONResponse) VisitGetGameStatusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetGameStatus401JSONResponse UnauthorizedResponse
+
+func (response GetGameStatus401JSONResponse) VisitGetGameStatusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetGameStatus403JSONResponse ForbiddenResponse
+
+func (response GetGameStatus403JSONResponse) VisitGetGameStatusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetGameStatus404JSONResponse GameNotFoundResponse
+
+func (response GetGameStatus404JSONResponse) VisitGetGameStatusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type VoteForAnswerRequestObject struct {
+	GameId string `json:"gameId"`
+	Body   *VoteForAnswerJSONRequestBody
+}
+
+type VoteForAnswerResponseObject interface {
+	VisitVoteForAnswerResponse(w http.ResponseWriter) error
+}
+
+type VoteForAnswer200JSONResponse VoteRecordedResponse
+
+func (response VoteForAnswer200JSONResponse) VisitVoteForAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type VoteForAnswer400JSONResponse BadRequestResponse
+
+func (response VoteForAnswer400JSONResponse) VisitVoteForAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type VoteForAnswer401JSONResponse UnauthorizedResponse
+
+func (response VoteForAnswer401JSONResponse) VisitVoteForAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type VoteForAnswer403JSONResponse ForbiddenResponse
+
+func (response VoteForAnswer403JSONResponse) VisitVoteForAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type VoteForAnswer404JSONResponse GameNotFoundResponse
+
+func (response VoteForAnswer404JSONResponse) VisitVoteForAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type HealthCheckRequestObject struct {
+}
+
+type HealthCheckResponseObject interface {
+	VisitHealthCheckResponse(w http.ResponseWriter) error
+}
+
+type HealthCheck200JSONResponse HealthStatus
+
+func (response HealthCheck200JSONResponse) VisitHealthCheckResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type JoinGameRequestObject struct {
+	GameId string `json:"gameId"`
+}
+
+type JoinGameResponseObject interface {
+	VisitJoinGameResponse(w http.ResponseWriter) error
+}
+
+type JoinGame200JSONResponse JoinGameResponse
+
+func (response JoinGame200JSONResponse) VisitJoinGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type JoinGame400JSONResponse BadRequestResponse
+
+func (response JoinGame400JSONResponse) VisitJoinGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type JoinGame401JSONResponse UnauthorizedResponse
+
+func (response JoinGame401JSONResponse) VisitJoinGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type JoinGame403JSONResponse ForbiddenResponse
+
+func (response JoinGame403JSONResponse) VisitJoinGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type JoinGame404JSONResponse GameNotFoundResponse
+
+func (response JoinGame404JSONResponse) VisitJoinGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type LogoutRequestObject struct {
+}
+
+type LogoutResponseObject interface {
+	VisitLogoutResponse(w http.ResponseWriter) error
+}
+
+type Logout200JSONResponse LogoutResponse
+
+func (response Logout200JSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPlayOrderRequestObject struct {
+	GameId string `json:"gameId"`
+}
+
+type GetPlayOrderResponseObject interface {
+	VisitGetPlayOrderResponse(w http.ResponseWriter) error
+}
+
+type GetPlayOrder200JSONResponse PlayOrderResponse
+
+func (response GetPlayOrder200JSONResponse) VisitGetPlayOrderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPlayOrder400JSONResponse BadRequestResponse
+
+func (response GetPlayOrder400JSONResponse) VisitGetPlayOrderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPlayOrder401JSONResponse UnauthorizedResponse
+
+func (response GetPlayOrder401JSONResponse) VisitGetPlayOrderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPlayOrder403JSONResponse ForbiddenResponse
+
+func (response GetPlayOrder403JSONResponse) VisitGetPlayOrderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetPlayOrder404JSONResponse GameNotFoundResponse
+
+func (response GetPlayOrder404JSONResponse) VisitGetPlayOrderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetPlayOrderRequestObject struct {
+	GameId string `json:"gameId"`
+	Body   *SetPlayOrderJSONRequestBody
+}
+
+type SetPlayOrderResponseObject interface {
+	VisitSetPlayOrderResponse(w http.ResponseWriter) error
+}
+
+type SetPlayOrder200JSONResponse PlayOrderSetResponse
+
+func (response SetPlayOrder200JSONResponse) VisitSetPlayOrderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetPlayOrder400JSONResponse BadRequestResponse
+
+func (response SetPlayOrder400JSONResponse) VisitSetPlayOrderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetPlayOrder401JSONResponse UnauthorizedResponse
+
+func (response SetPlayOrder401JSONResponse) VisitSetPlayOrderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetPlayOrder403JSONResponse ForbiddenResponse
+
+func (response SetPlayOrder403JSONResponse) VisitSetPlayOrderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type SetPlayOrder404JSONResponse GameNotFoundResponse
+
+func (response SetPlayOrder404JSONResponse) VisitSetPlayOrderResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type GetSystemStatusRequestObject struct {
+}
+
+type GetSystemStatusResponseObject interface {
+	VisitGetSystemStatusResponse(w http.ResponseWriter) error
+}
+
+type GetSystemStatus200JSONResponse SystemStatusResponse
+
+func (response GetSystemStatus200JSONResponse) VisitGetSystemStatusResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+// StrictServerInterface represents all server handlers.
+type StrictServerInterface interface {
+	// Create a game tied to a user
+	// (POST /api/create/game)
+	CreateGame(ctx context.Context, request CreateGameRequestObject) (CreateGameResponseObject, error)
+	// Create a new user
+	// (POST /api/create/user)
+	CreateUser(ctx context.Context, request CreateUserRequestObject) (CreateUserResponseObject, error)
+	// Get the answers for the game
+	// (GET /api/game/{gameId}/answers)
+	GetAnswers(ctx context.Context, request GetAnswersRequestObject) (GetAnswersResponseObject, error)
+	// Send an answer for the game
+	// (POST /api/game/{gameId}/answers)
+	SendAnswer(ctx context.Context, request SendAnswerRequestObject) (SendAnswerResponseObject, error)
+	// Delete an answer during verification
+	// (DELETE /api/game/{gameId}/answers/{answerUUID})
+	DeleteAnswer(ctx context.Context, request DeleteAnswerRequestObject) (DeleteAnswerResponseObject, error)
+	// Finish the game
+	// (POST /api/game/{gameId}/finish)
+	FinishGame(ctx context.Context, request FinishGameRequestObject) (FinishGameResponseObject, error)
+	// Leave a game
+	// (POST /api/game/{gameId}/leave)
+	LeaveGame(ctx context.Context, request LeaveGameRequestObject) (LeaveGameResponseObject, error)
+	// Move to the next round in the game
+	// (POST /api/game/{gameId}/next)
+	NextRound(ctx context.Context, request NextRoundRequestObject) (NextRoundResponseObject, error)
+	// Kick a player from a game
+	// (DELETE /api/game/{gameId}/players/{userUUID})
+	KickPlayer(ctx context.Context, request KickPlayerRequestObject) (KickPlayerResponseObject, error)
+	// Reveal the answers and votes in the game
+	// (GET /api/game/{gameId}/reveal)
+	RevealVotes(ctx context.Context, request RevealVotesRequestObject) (RevealVotesResponseObject, error)
+	// Reveal votes for the current round
+	// (POST /api/game/{gameId}/reveal)
+	TriggerReveal(ctx context.Context, request TriggerRevealRequestObject) (TriggerRevealResponseObject, error)
+	// Start the game
+	// (POST /api/game/{gameId}/start)
+	StartGame(ctx context.Context, request StartGameRequestObject) (StartGameResponseObject, error)
+	// Start verification for the current round
+	// (POST /api/game/{gameId}/startVerification)
+	StartVerification(ctx context.Context, request StartVerificationRequestObject) (StartVerificationResponseObject, error)
+	// Start voting for the current round
+	// (POST /api/game/{gameId}/startVoting)
+	StartVoting(ctx context.Context, request StartVotingRequestObject) (StartVotingResponseObject, error)
+	// Get the status of the game
+	// (GET /api/game/{gameId}/status)
+	GetGameStatus(ctx context.Context, request GetGameStatusRequestObject) (GetGameStatusResponseObject, error)
+	// Vote for an answer in the game
+	// (POST /api/game/{gameId}/vote)
+	VoteForAnswer(ctx context.Context, request VoteForAnswerRequestObject) (VoteForAnswerResponseObject, error)
+	// Health check
+	// (GET /api/health)
+	HealthCheck(ctx context.Context, request HealthCheckRequestObject) (HealthCheckResponseObject, error)
+	// Join a game
+	// (POST /api/join/{gameId})
+	JoinGame(ctx context.Context, request JoinGameRequestObject) (JoinGameResponseObject, error)
+	// Log out the current user
+	// (POST /api/logout)
+	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
+	// Gets the play order of the users for the game
+	// (GET /api/order/{gameId})
+	GetPlayOrder(ctx context.Context, request GetPlayOrderRequestObject) (GetPlayOrderResponseObject, error)
+	// Set the play order for the game
+	// (PUT /api/order/{gameId})
+	SetPlayOrder(ctx context.Context, request SetPlayOrderRequestObject) (SetPlayOrderResponseObject, error)
+	// Public server status
+	// (GET /api/status)
+	GetSystemStatus(ctx context.Context, request GetSystemStatusRequestObject) (GetSystemStatusResponseObject, error)
+}
+
+type StrictHandlerFunc = strictgin.StrictGinHandlerFunc
+type StrictMiddlewareFunc = strictgin.StrictGinMiddlewareFunc
+
+func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareFunc) ServerInterface {
+	return &strictHandler{ssi: ssi, middlewares: middlewares}
+}
+
+type strictHandler struct {
+	ssi         StrictServerInterface
+	middlewares []StrictMiddlewareFunc
+}
+
+// CreateGame operation middleware
+func (sh *strictHandler) CreateGame(ctx *gin.Context) {
+	var request CreateGameRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateGame(ctx, request.(CreateGameRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateGame")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(CreateGameResponseObject); ok {
+		if err := validResponse.VisitCreateGameResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateUser operation middleware
+func (sh *strictHandler) CreateUser(ctx *gin.Context) {
+	var request CreateUserRequestObject
+
+	var body CreateUserJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateUser(ctx, request.(CreateUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateUser")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(CreateUserResponseObject); ok {
+		if err := validResponse.VisitCreateUserResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAnswers operation middleware
+func (sh *strictHandler) GetAnswers(ctx *gin.Context, gameId string) {
+	var request GetAnswersRequestObject
+
+	request.GameId = gameId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAnswers(ctx, request.(GetAnswersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAnswers")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(GetAnswersResponseObject); ok {
+		if err := validResponse.VisitGetAnswersResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SendAnswer operation middleware
+func (sh *strictHandler) SendAnswer(ctx *gin.Context, gameId string) {
+	var request SendAnswerRequestObject
+
+	request.GameId = gameId
+
+	var body SendAnswerJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SendAnswer(ctx, request.(SendAnswerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SendAnswer")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(SendAnswerResponseObject); ok {
+		if err := validResponse.VisitSendAnswerResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAnswer operation middleware
+func (sh *strictHandler) DeleteAnswer(ctx *gin.Context, gameId string, answerUUID UUID) {
+	var request DeleteAnswerRequestObject
+
+	request.GameId = gameId
+	request.AnswerUUID = answerUUID
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAnswer(ctx, request.(DeleteAnswerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAnswer")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(DeleteAnswerResponseObject); ok {
+		if err := validResponse.VisitDeleteAnswerResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// FinishGame operation middleware
+func (sh *strictHandler) FinishGame(ctx *gin.Context, gameId string) {
+	var request FinishGameRequestObject
+
+	request.GameId = gameId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.FinishGame(ctx, request.(FinishGameRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FinishGame")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(FinishGameResponseObject); ok {
+		if err := validResponse.VisitFinishGameResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LeaveGame operation middleware
+func (sh *strictHandler) LeaveGame(ctx *gin.Context, gameId string) {
+	var request LeaveGameRequestObject
+
+	request.GameId = gameId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.LeaveGame(ctx, request.(LeaveGameRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LeaveGame")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(LeaveGameResponseObject); ok {
+		if err := validResponse.VisitLeaveGameResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// NextRound operation middleware
+func (sh *strictHandler) NextRound(ctx *gin.Context, gameId string) {
+	var request NextRoundRequestObject
+
+	request.GameId = gameId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.NextRound(ctx, request.(NextRoundRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "NextRound")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(NextRoundResponseObject); ok {
+		if err := validResponse.VisitNextRoundResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// KickPlayer operation middleware
+func (sh *strictHandler) KickPlayer(ctx *gin.Context, gameId string, userUUID UUID) {
+	var request KickPlayerRequestObject
+
+	request.GameId = gameId
+	request.UserUUID = userUUID
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.KickPlayer(ctx, request.(KickPlayerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "KickPlayer")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(KickPlayerResponseObject); ok {
+		if err := validResponse.VisitKickPlayerResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RevealVotes operation middleware
+func (sh *strictHandler) RevealVotes(ctx *gin.Context, gameId string) {
+	var request RevealVotesRequestObject
+
+	request.GameId = gameId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.RevealVotes(ctx, request.(RevealVotesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevealVotes")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(RevealVotesResponseObject); ok {
+		if err := validResponse.VisitRevealVotesResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// TriggerReveal operation middleware
+func (sh *strictHandler) TriggerReveal(ctx *gin.Context, gameId string) {
+	var request TriggerRevealRequestObject
+
+	request.GameId = gameId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.TriggerReveal(ctx, request.(TriggerRevealRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TriggerReveal")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(TriggerRevealResponseObject); ok {
+		if err := validResponse.VisitTriggerRevealResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartGame operation middleware
+func (sh *strictHandler) StartGame(ctx *gin.Context, gameId string) {
+	var request StartGameRequestObject
+
+	request.GameId = gameId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.StartGame(ctx, request.(StartGameRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartGame")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(StartGameResponseObject); ok {
+		if err := validResponse.VisitStartGameResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartVerification operation middleware
+func (sh *strictHandler) StartVerification(ctx *gin.Context, gameId string) {
+	var request StartVerificationRequestObject
+
+	request.GameId = gameId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.StartVerification(ctx, request.(StartVerificationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartVerification")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(StartVerificationResponseObject); ok {
+		if err := validResponse.VisitStartVerificationResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartVoting operation middleware
+func (sh *strictHandler) StartVoting(ctx *gin.Context, gameId string) {
+	var request StartVotingRequestObject
+
+	request.GameId = gameId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.StartVoting(ctx, request.(StartVotingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartVoting")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(StartVotingResponseObject); ok {
+		if err := validResponse.VisitStartVotingResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetGameStatus operation middleware
+func (sh *strictHandler) GetGameStatus(ctx *gin.Context, gameId string) {
+	var request GetGameStatusRequestObject
+
+	request.GameId = gameId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetGameStatus(ctx, request.(GetGameStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetGameStatus")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(GetGameStatusResponseObject); ok {
+		if err := validResponse.VisitGetGameStatusResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// VoteForAnswer operation middleware
+func (sh *strictHandler) VoteForAnswer(ctx *gin.Context, gameId string) {
+	var request VoteForAnswerRequestObject
+
+	request.GameId = gameId
+
+	var body VoteForAnswerJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.VoteForAnswer(ctx, request.(VoteForAnswerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "VoteForAnswer")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(VoteForAnswerResponseObject); ok {
+		if err := validResponse.VisitVoteForAnswerResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// HealthCheck operation middleware
+func (sh *strictHandler) HealthCheck(ctx *gin.Context) {
+	var request HealthCheckRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.HealthCheck(ctx, request.(HealthCheckRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "HealthCheck")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(HealthCheckResponseObject); ok {
+		if err := validResponse.VisitHealthCheckResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// JoinGame operation middleware
+func (sh *strictHandler) JoinGame(ctx *gin.Context, gameId string) {
+	var request JoinGameRequestObject
+
+	request.GameId = gameId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.JoinGame(ctx, request.(JoinGameRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "JoinGame")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(JoinGameResponseObject); ok {
+		if err := validResponse.VisitJoinGameResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Logout operation middleware
+func (sh *strictHandler) Logout(ctx *gin.Context) {
+	var request LogoutRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.Logout(ctx, request.(LogoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Logout")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(LogoutResponseObject); ok {
+		if err := validResponse.VisitLogoutResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPlayOrder operation middleware
+func (sh *strictHandler) GetPlayOrder(ctx *gin.Context, gameId string) {
+	var request GetPlayOrderRequestObject
+
+	request.GameId = gameId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPlayOrder(ctx, request.(GetPlayOrderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPlayOrder")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(GetPlayOrderResponseObject); ok {
+		if err := validResponse.VisitGetPlayOrderResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetPlayOrder operation middleware
+func (sh *strictHandler) SetPlayOrder(ctx *gin.Context, gameId string) {
+	var request SetPlayOrderRequestObject
+
+	request.GameId = gameId
+
+	var body SetPlayOrderJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.SetPlayOrder(ctx, request.(SetPlayOrderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetPlayOrder")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(SetPlayOrderResponseObject); ok {
+		if err := validResponse.VisitSetPlayOrderResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSystemStatus operation middleware
+func (sh *strictHandler) GetSystemStatus(ctx *gin.Context) {
+	var request GetSystemStatusRequestObject
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSystemStatus(ctx, request.(GetSystemStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSystemStatus")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(GetSystemStatusResponseObject); ok {
+		if err := validResponse.VisitGetSystemStatusResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"H4sIAAAAAAAC/+xcW3PbOu7/Khz9/zP74tjOpT3dvPWyzfb0OkkvD2c6O7QES2wkUktSTrwdf/cdkrpa",
+	"lCw5cpv16C2RSYIEgR8BEMRPx2VRzChQKZzLn45wA4iw/vM5FXfA1V8xZzFwSUB/x/l3uMdRHIJz6XwO",
+	"iEBEoGiNzM9IMiQDQP9OQEjCqDNx5DpWTYXkhPrOZpIO9OXLm1dqsP/nsHQunf+bFROapbOZ6TabiRPi",
+	"BYRVys9tIyei37iqPcURVIf+wQL6L4+BM3EifP8OqC8D5/L8rEZwk39hix/gSjWk4d4rCEGCdw0iZlRA",
+	"nZkRCIH9LcKmL/JMZyQS1wUhlkkYrp0exK/BBbLqTT3rpvcv3exeVPWeH0xumil/IzL4yqShNspsu8xO",
+	"nFXGKiIhErvIKsZ+EcCdgv+Yc7xu2xDRLHmGj93Jp2DUifgL7KVC2EwfOGdb8vACe4ibfhMUESEI9fUH",
+	"wsFDSwKhJ7qJ40sO2HCrURkOgDivGV8QzwPaa9V5rwlaswR5DFEmUYBXgGLgmg2MKs3AGoSQVFrDQbCE",
+	"u9CNHVc4AsOSFijycQRvvOrc3CDxpyscJjBdJrQr9xW514QSEfSGPtUVLdO+e+Cu6v8OlrInWdVFI49i",
+	"wp5kPzD5miXU67X5er1qv5eq6wTFIWAByA3AvS0m9OZV92ncSMzlfnwXpuue67+RWCYtgOMmnAOVhVHj",
+	"gXA5iTXQq8MAMuVXah+HeA38bwKl3bITYsm4ORZdSVaAuGEbWaqPa4RDDthbI5EsIiLVWhhVOvLAM6cy",
+	"9T5HhNq991jIfr3M2l+yhMrKLl3kUyNUgm/QmKfGwvMCz6uMvQIj2jSJFsARW6YLVyCS2hlLziLdxlAW",
+	"ZY6dtxHND/tdJPVRt0UQQuKTRQj6xyrRMytRtdcVhpw2NuvPdN3NyHBVNQy3lCRYJEPkHaocMAOplWdK",
+	"XF6edd7qQOp+HHe3BP4JOJSBbWUf39qW9CcjVOlzTwRRE6ogB/rBCE2N2JQBHZDkHfNZ0hu+me8rXU/k",
+	"Htj1Ae7ldTtwW4m+Z9pEN+hB4V4aMNpjBp9CvP7IPWWsNM0gzpp0FpB80O6Skne5gb47oLoipvoiAfIh",
+	"PNDTrRFlNCS0SlPyBPKBFoyFgGmKni7sholH4KF+0mj7lri3vc9r0xXd6r57sPsaVoBDDd9DuwiFE9hJ",
+	"6G5AluS/wVi3i3+tzfD7bptxhzUpQ0ph6J6O0HOJlB0o0Xl2IiPMoXCFJDO2GsI9kPVmLSREu6w0NV71",
+	"mLCexUYfP6XmQrm51V6ILQ2f1Bvapp3tVcGd07NzuHjy9I8TePb3xcnpmXd+gi+ePD25OHv69PTi9I+L",
+	"+Xy+pY9PJ05EaPnfKsMmzv2Jz07Sj0lCvKmmW/p+QqKYcSObWI3i+EQGyWLqsmjmM+aHMFMd9Sq+UJzI",
+	"gHHyH+jnD5Q7ThChKxwSDzGeu8OS3ULHmMyDkfQRQKRaw2e9ZKsDn//UdXoP0/yvwMmSuFgZefv5WeUR",
+	"HuBvKXy9BlcduL1nwKRCEtN3b9KtEcYHMjmLc1l3/DfL41emvNM991733XvXlbcBbsKJXN+ohRpKAnR8",
+	"6CVjt0TTI8r9cM2/E8csP2tVkMExeQvq9NpMHEKXzOLBEDVt9A0WCMdxmMmsZCjCt6CNXhFgNVnl5dxx",
+	"5W5TJJUdDFgQ4FNFjUi99A9swby18rs/AV+CK9EJumLOxFkBF4befDqfnuqjJQaKY+JcOufT+fTcmWi8",
+	"1Yud4ZjMXB3ImvnpxsbMCGJ19t9IGCLTEmFE4c4EUrLogZIMdEdkgDBKgV5tn17iG8+5TAOIV+Zw5ek+",
+	"6zmczU91NINRCcY/L7Fn9kMwWtzi7BJUW1xOb8mWO62mbhbjKQ5dzOeDTcFioVhm0Ckyq2c2HHOsZ6hl",
+	"buV2Zg7ng82hHtG1TCBvVNFR5/Kvmnb+9X3zfeKIJIowX+dSllpxSBJj2mEtnnqwssAnGSZ2FPiOMq6h",
+	"Vsm43t0XzFsPxr16FF5zL5MbY3hsDqhfhfVgkxvFn8eiVY9BcOtimYlRIYtKUGc/zVXBZlZyEH2wCOU1",
+	"yIRTkQccM/g1gZJIx+iQl+hDJA+zzVZlGwlTT3fL/KC09UqfpTOu3diaZF+BzMKh6vTgOAIdYVQqqc9H",
+	"bcHnp2N687EtmZMSr3tdiXyvifRwkrV9r2fZ1ud5eFdyAqttU2M8QB7xAaKoXwxqX9SupZoMjPwWqvcx",
+	"loX7t9Vcm2jK+28+sXAYsrv0xNNhDaAewnT7tieNclS1/AZoeuvx+7R8+EOzmsPR6cCcD058K23FIjK2",
+	"HJURWUZkGRZZblrgoN0mmf0sYhEbAz4hSKjD0Mv0frlik7iYpslfpavkDN4WsGQcUhPEuPOiBk4m7+w3",
+	"wtPESqUUoGmj1CFyc3gjZzt1r9HUsefpjWg0opENjRjP4GR/XDKiWUKmzC0puS5NAGWym3Z48qZRkQGk",
+	"3CA3BExREufJX3XUMVlXadjquBwfa1JZ0x7bM8hGRBgRYVj75HVVTZtUPgS8aglWX0PEViD0MFm6m3aI",
+	"8rwsNdAUvTHZROyOAkd6TDEx/4mAxEhyTMVSWSjlpBQTOJmif0SxXOuBzGWyR4SLuQfetIYi79TQRwsi",
+	"lfRQi0i05IKOADICyLAAolUtS+NoQA+lxjvMBRNGyYVWMqQQpZ6cVlP1PPnt6FS9ntZn2b1OOXyj1o9a",
+	"P6zWv7cqJyJ0pyWRXoPMfma5EK2xjY80XJfuuwOW3XcVUOFiqrMIS6nfVYR4S9xbk+f1iMIYeSbIIw5i",
+	"WLM7LbLUkso5Is+IPMMijxJHhFNlN/5Fu/GR3rA23fBq64Pra15zs6ubl4KlmHrp448yum2DTCkd+egM",
+	"EVuqdcutbcGwnJcjJoyYcEBMMAJaucG1a23jVa71DoXx1MJQJgfjKMI0wWG4TuVaKKfFEKnBwWdOfB/4",
+	"dZbdMQLCCAgjIPxqQDBCl925umUdb7IW9GXojliFebmSOyDllNw6EuQvaY4yFLmdR960ldaU8YH1vu3N",
+	"0i4AINQNE09BwF0AFC1Bv6sOMC09YNIFDcyT0BEY/lfTMSqq2woC5YcuzYDQyXAwGRbZTWslO7SSimEH",
+	"j8pEjg1E2h4kWbZ/9+uj0ZgYMeMQmFHR2v4mhXk6NQyOKMpp7lYcYAG5Y9KAHxm2HBlyWB+y2TCj5dXa",
+	"iBYjWhwELYzM9cWJtMBJp0ClqBVoKVmx2hfRjrf+weCJ7ZVJUffoWP2TcrEAy3Zb6tyMoDCCwmHelwiL",
+	"sNnBYMUkdEqZKF6eqC4acYqkzrYbi69MwmvGj+/9Sfl9/y9+fWKtamA3SZpKGIzgM4LPsODztR0XcgAK",
+	"dJm1kv1RxQtThe1lAO6tc0AVqhR7szDj49utt76mgyk4WSzmByM0R9OeQKr6KmbBPTGlHK34mVWZOzq7",
+	"qVY+r+np+XZ5vBG6RugaFrr+1Jq4hVOhLrDYEkoJAXMTJUmHR6aaDCJLxCggIlDMQSgm1BLHzdgH1K6t",
+	"8pC29O2GWpBV2HvHfN1kO+W+4JMuZljBwE5+ZVwUQkztVONMtr5kvirVwDs6QKxXt2xIgkvZlpctGBFx",
+	"RMThPUnRXU03EydOGq+xU6e0NNKOagWPQceH9xdt9Tt/sd9orVvbDjK1IrUj1oxYM3TtgnaAyC2NHZHr",
+	"vIiS73PwsQRE6EkEEePr4m1wmtDrsoRaihFcgSxXfz2kgWatMmthbnZjV6xKAF8BT4N8W+bap2QRErfW",
+	"RO+I+mRAdNsQdHGIPFhByOJI0TJtnYmT8NC5dAIp48vZLFTtAibk5bP5s7mz+b75bwAAAP//Y+zcQpNp",
+	"AAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

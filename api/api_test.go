@@ -1,0 +1,872 @@
+package api
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/gin-gonic/gin"
+	"github.com/max0l/nobody-is-perfect-go/game"
+)
+
+func TestCreateUserReturnsToken(t *testing.T) {
+	server := NewServer()
+	username := "alice"
+
+	response, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &username}})
+	if err != nil {
+		t.Fatalf("CreateUser returned error: %v", err)
+	}
+
+	created, ok := response.(CreateUser201JSONResponse)
+	if !ok {
+		t.Fatalf("expected CreateUser201JSONResponse, got %T", response)
+	}
+	if created.UserToken == nil {
+		t.Fatal("expected user token to be set")
+	}
+	if created.UserUUID == nil {
+		t.Fatal("expected user UUID to be set")
+	}
+}
+
+func TestCreateUserSetsSecureHTTPOnlySessionCookie(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	server := NewServer()
+	username := "alice"
+	response := httptest.NewRecorder()
+	ginContext, _ := gin.CreateTestContext(response)
+
+	createdResponse, err := server.CreateUser(ginContext, CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &username}})
+	if err != nil {
+		t.Fatalf("CreateUser returned error: %v", err)
+	}
+	created, ok := createdResponse.(CreateUser201JSONResponse)
+	if !ok {
+		t.Fatalf("expected CreateUser201JSONResponse, got %T", createdResponse)
+	}
+
+	cookies := response.Result().Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf("expected one cookie, got %d", len(cookies))
+	}
+	cookie := cookies[0]
+	if cookie.Name != SessionCookieName {
+		t.Fatalf("expected cookie name %q, got %q", SessionCookieName, cookie.Name)
+	}
+	if cookie.Value != created.UserToken.String() {
+		t.Fatalf("expected session cookie value to match user token")
+	}
+	if !cookie.HttpOnly {
+		t.Fatal("expected session cookie to be HttpOnly")
+	}
+	if !cookie.Secure {
+		t.Fatal("expected session cookie to be Secure")
+	}
+	if cookie.SameSite != http.SameSiteStrictMode {
+		t.Fatalf("expected SameSite=Strict, got %v", cookie.SameSite)
+	}
+	if cookie.Path != "/" {
+		t.Fatalf("expected cookie path /, got %q", cookie.Path)
+	}
+	if cookie.MaxAge != SessionCookieMaxAge {
+		t.Fatalf("expected cookie max age %d, got %d", SessionCookieMaxAge, cookie.MaxAge)
+	}
+}
+
+func TestLogoutClearsSessionCookie(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	server := NewServer()
+	response := httptest.NewRecorder()
+	ginContext, _ := gin.CreateTestContext(response)
+
+	logoutResponse, err := server.Logout(ginContext, LogoutRequestObject{})
+	if err != nil {
+		t.Fatalf("Logout returned error: %v", err)
+	}
+	if _, ok := logoutResponse.(Logout200JSONResponse); !ok {
+		t.Fatalf("expected Logout200JSONResponse, got %T", logoutResponse)
+	}
+
+	cookies := response.Result().Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf("expected one cookie, got %d", len(cookies))
+	}
+	cookie := cookies[0]
+	if cookie.Name != SessionCookieName {
+		t.Fatalf("expected cookie name %q, got %q", SessionCookieName, cookie.Name)
+	}
+	if cookie.Value != "" {
+		t.Fatalf("expected empty cookie value, got %q", cookie.Value)
+	}
+	if cookie.MaxAge != -1 {
+		t.Fatalf("expected cookie max age -1, got %d", cookie.MaxAge)
+	}
+	if !cookie.HttpOnly {
+		t.Fatal("expected cookie to be HttpOnly")
+	}
+	if !cookie.Secure {
+		t.Fatal("expected cookie to be Secure")
+	}
+	if cookie.SameSite != http.SameSiteStrictMode {
+		t.Fatalf("expected SameSite=Strict, got %v", cookie.SameSite)
+	}
+	if cookie.Path != "/" {
+		t.Fatalf("expected cookie path /, got %q", cookie.Path)
+	}
+}
+
+func TestLogoutWorksWithoutGinContext(t *testing.T) {
+	server := NewServer()
+
+	response, err := server.Logout(context.Background(), LogoutRequestObject{})
+	if err != nil {
+		t.Fatalf("Logout returned error: %v", err)
+	}
+	if _, ok := response.(Logout200JSONResponse); !ok {
+		t.Fatalf("expected Logout200JSONResponse, got %T", response)
+	}
+}
+
+func TestGetSystemStatusReturnsAggregateCounts(t *testing.T) {
+	server := NewServer()
+	ownerName := "owner"
+	ownerResponse, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &ownerName}})
+	if err != nil {
+		t.Fatalf("CreateUser owner returned error: %v", err)
+	}
+	owner := ownerResponse.(CreateUser201JSONResponse)
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+	createdGameResponse, err := server.CreateGame(ownerCtx, CreateGameRequestObject{})
+	if err != nil {
+		t.Fatalf("CreateGame returned error: %v", err)
+	}
+	createdGame := createdGameResponse.(CreateGame201JSONResponse)
+
+	playerName := "player"
+	playerResponse, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &playerName}})
+	if err != nil {
+		t.Fatalf("CreateUser player returned error: %v", err)
+	}
+	player := playerResponse.(CreateUser201JSONResponse)
+	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+	if response, err := server.JoinGame(playerCtx, JoinGameRequestObject{GameId: *createdGame.GameId}); err != nil {
+		t.Fatalf("JoinGame returned error: %v", err)
+	} else if _, ok := response.(JoinGame200JSONResponse); !ok {
+		t.Fatalf("expected JoinGame200JSONResponse, got %T", response)
+	}
+
+	response, err := server.GetSystemStatus(context.Background(), GetSystemStatusRequestObject{})
+	if err != nil {
+		t.Fatalf("GetSystemStatus returned error: %v", err)
+	}
+	status, ok := response.(GetSystemStatus200JSONResponse)
+	if !ok {
+		t.Fatalf("expected GetSystemStatus200JSONResponse, got %T", response)
+	}
+	if status.Games == nil || *status.Games != 1 {
+		t.Fatalf("expected 1 game, got %v", status.Games)
+	}
+	if status.Players == nil || *status.Players != 2 {
+		t.Fatalf("expected 2 players, got %v", status.Players)
+	}
+	if status.OnlinePlayers == nil || *status.OnlinePlayers != 2 {
+		t.Fatalf("expected 2 online players, got %v", status.OnlinePlayers)
+	}
+}
+
+func TestCreateUserReturnsBadRequestForMissingUsername(t *testing.T) {
+	server := NewServer()
+
+	response, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{}})
+	if err != nil {
+		t.Fatalf("CreateUser returned error: %v", err)
+	}
+
+	badRequest, ok := response.(CreateUser400JSONResponse)
+	if !ok {
+		t.Fatalf("expected CreateUser400JSONResponse, got %T", response)
+	}
+	if badRequest.Error == nil || *badRequest.Error != BadRequestError {
+		t.Fatalf("expected error %q, got %v", BadRequestError, badRequest.Error)
+	}
+}
+
+func TestCreateUserReturnsBadRequestForLongUsername(t *testing.T) {
+	server := NewServer()
+	username := strings.Repeat("a", game.MaxUsernameLength+1)
+
+	response, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &username}})
+	if err != nil {
+		t.Fatalf("CreateUser returned error: %v", err)
+	}
+
+	badRequest, ok := response.(CreateUser400JSONResponse)
+	if !ok {
+		t.Fatalf("expected CreateUser400JSONResponse, got %T", response)
+	}
+	if badRequest.Error == nil || *badRequest.Error != BadRequestError {
+		t.Fatalf("expected error %q, got %v", BadRequestError, badRequest.Error)
+	}
+}
+
+func TestCreateGameReturnsUnauthorizedWithoutSession(t *testing.T) {
+	server := NewServer()
+
+	response, err := server.CreateGame(context.Background(), CreateGameRequestObject{})
+	if err != nil {
+		t.Fatalf("CreateGame returned error: %v", err)
+	}
+
+	unauthorized, ok := response.(CreateGame401JSONResponse)
+	if !ok {
+		t.Fatalf("expected CreateGame401JSONResponse, got %T", response)
+	}
+	if unauthorized.Error == nil || *unauthorized.Error != UnauthorizedError {
+		t.Fatalf("expected error %q, got %v", UnauthorizedError, unauthorized.Error)
+	}
+}
+
+func TestCreateGameReturnsUnauthorizedForInvalidSession(t *testing.T) {
+	server := NewServer()
+	ctx := context.WithValue(context.Background(), SessionCookieValueKey, "not-a-uuid")
+
+	response, err := server.CreateGame(ctx, CreateGameRequestObject{})
+	if err != nil {
+		t.Fatalf("CreateGame returned error: %v", err)
+	}
+
+	if _, ok := response.(CreateGame401JSONResponse); !ok {
+		t.Fatalf("expected CreateGame401JSONResponse, got %T", response)
+	}
+}
+
+func TestCreateGameReturnsCreatedForValidSession(t *testing.T) {
+	server := NewServer()
+	username := "alice"
+	createUserResponse, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &username}})
+	if err != nil {
+		t.Fatalf("CreateUser returned error: %v", err)
+	}
+	createdUser := createUserResponse.(CreateUser201JSONResponse)
+
+	ctx := context.WithValue(context.Background(), SessionCookieValueKey, createdUser.UserToken.String())
+	response, err := server.CreateGame(ctx, CreateGameRequestObject{})
+	if err != nil {
+		t.Fatalf("CreateGame returned error: %v", err)
+	}
+
+	createdGame, ok := response.(CreateGame201JSONResponse)
+	if !ok {
+		t.Fatalf("expected CreateGame201JSONResponse, got %T", response)
+	}
+	if createdGame.GameId == nil || *createdGame.GameId == "" {
+		t.Fatal("expected game ID to be set")
+	}
+}
+
+func TestCreateGameReturnsForbiddenWhenMaxConcurrentGamesReached(t *testing.T) {
+	server := NewServerWithGameService(game.NewServiceWithOptions(game.ServiceOptions{MaxConcurrentGames: 1}))
+	firstName := "first"
+	firstResponse, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &firstName}})
+	if err != nil {
+		t.Fatalf("CreateUser first returned error: %v", err)
+	}
+	first := firstResponse.(CreateUser201JSONResponse)
+	firstCtx := context.WithValue(context.Background(), SessionCookieValueKey, first.UserToken.String())
+	if response, err := server.CreateGame(firstCtx, CreateGameRequestObject{}); err != nil {
+		t.Fatalf("CreateGame first returned error: %v", err)
+	} else if _, ok := response.(CreateGame201JSONResponse); !ok {
+		t.Fatalf("expected CreateGame201JSONResponse, got %T", response)
+	}
+	secondName := "second"
+	secondResponse, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &secondName}})
+	if err != nil {
+		t.Fatalf("CreateUser second returned error: %v", err)
+	}
+	second := secondResponse.(CreateUser201JSONResponse)
+	secondCtx := context.WithValue(context.Background(), SessionCookieValueKey, second.UserToken.String())
+
+	response, err := server.CreateGame(secondCtx, CreateGameRequestObject{})
+	if err != nil {
+		t.Fatalf("CreateGame second returned error: %v", err)
+	}
+	if _, ok := response.(CreateGame403JSONResponse); !ok {
+		t.Fatalf("expected CreateGame403JSONResponse, got %T", response)
+	}
+}
+
+func TestJoinGameAndGetPlayOrder(t *testing.T) {
+	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
+	ctx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+
+	response, err := server.GetPlayOrder(ctx, GetPlayOrderRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetPlayOrder returned error: %v", err)
+	}
+
+	playOrder, ok := response.(GetPlayOrder200JSONResponse)
+	if !ok {
+		t.Fatalf("expected GetPlayOrder200JSONResponse, got %T", response)
+	}
+	if playOrder.PlayOrder == nil || len(*playOrder.PlayOrder) != 2 {
+		t.Fatalf("expected 2 play order entries, got %v", playOrder.PlayOrder)
+	}
+	if *(*playOrder.PlayOrder)[0].UserUUID != *owner.UserUUID {
+		t.Fatalf("expected owner first, got %+v", (*playOrder.PlayOrder)[0])
+	}
+	if *(*playOrder.PlayOrder)[1].UserUUID != *player.UserUUID {
+		t.Fatalf("expected player second, got %+v", (*playOrder.PlayOrder)[1])
+	}
+}
+
+func TestSetPlayOrderReordersPlayers(t *testing.T) {
+	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
+	ctx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+	one := 1
+	two := 2
+	body := SetPlayOrderJSONRequestBody{
+		PlayOrder: &[]struct {
+			Place    *int  `json:"place,omitempty"`
+			UserUUID *UUID `json:"userUUID,omitempty"`
+		}{
+			{Place: &one, UserUUID: player.UserUUID},
+			{Place: &two, UserUUID: owner.UserUUID},
+		},
+	}
+
+	response, err := server.SetPlayOrder(ctx, SetPlayOrderRequestObject{GameId: gameID, Body: &body})
+	if err != nil {
+		t.Fatalf("SetPlayOrder returned error: %v", err)
+	}
+	if _, ok := response.(SetPlayOrder200JSONResponse); !ok {
+		t.Fatalf("expected SetPlayOrder200JSONResponse, got %T", response)
+	}
+
+	getResponse, err := server.GetPlayOrder(ctx, GetPlayOrderRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetPlayOrder returned error: %v", err)
+	}
+	playOrder := getResponse.(GetPlayOrder200JSONResponse)
+	if *(*playOrder.PlayOrder)[0].UserUUID != *player.UserUUID {
+		t.Fatalf("expected player first after reorder, got %+v", (*playOrder.PlayOrder)[0])
+	}
+}
+
+func TestSetPlayOrderRequiresOwner(t *testing.T) {
+	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
+	ctx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+	one := 1
+	two := 2
+	body := SetPlayOrderJSONRequestBody{
+		PlayOrder: &[]struct {
+			Place    *int  `json:"place,omitempty"`
+			UserUUID *UUID `json:"userUUID,omitempty"`
+		}{
+			{Place: &one, UserUUID: player.UserUUID},
+			{Place: &two, UserUUID: owner.UserUUID},
+		},
+	}
+
+	response, err := server.SetPlayOrder(ctx, SetPlayOrderRequestObject{GameId: gameID, Body: &body})
+	if err != nil {
+		t.Fatalf("SetPlayOrder returned error: %v", err)
+	}
+	if _, ok := response.(SetPlayOrder403JSONResponse); !ok {
+		t.Fatalf("expected SetPlayOrder403JSONResponse, got %T", response)
+	}
+}
+
+func TestStartGameReturnsBadRequestWhenNotEnoughPlayers(t *testing.T) {
+	server, gameID, owner, _ := serverWithGameAndJoinedPlayer(t)
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+
+	response, err := server.StartGame(ownerCtx, StartGameRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("StartGame returned error: %v", err)
+	}
+	badRequest, ok := response.(StartGame400JSONResponse)
+	if !ok {
+		t.Fatalf("expected StartGame400JSONResponse, got %T", response)
+	}
+	if badRequest.Error == nil || *badRequest.Error != NotEnoughPlayersError {
+		t.Fatalf("expected error %q, got %v", NotEnoughPlayersError, badRequest.Error)
+	}
+}
+
+func TestAnswerEndpointShowsAuthorsOnlyToCurrentReader(t *testing.T) {
+	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
+	third := addAPIPlayer(t, server, gameID, "third")
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+	thirdCtx := context.WithValue(context.Background(), SessionCookieValueKey, third.UserToken.String())
+	ownerAnswer := "owner answer"
+	playerAnswer := "player answer"
+	thirdAnswer := "third answer"
+	if response, err := server.StartGame(ownerCtx, StartGameRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("StartGame returned error: %v", err)
+	} else if _, ok := response.(StartGame200JSONResponse); !ok {
+		t.Fatalf("expected StartGame200JSONResponse, got %T", response)
+	}
+	if response, err := server.SendAnswer(ownerCtx, SendAnswerRequestObject{GameId: gameID, Body: &SendAnswerJSONRequestBody{Answer: &ownerAnswer}}); err != nil {
+		t.Fatalf("SendAnswer owner returned error: %v", err)
+	} else if _, ok := response.(SendAnswer200JSONResponse); !ok {
+		t.Fatalf("expected SendAnswer200JSONResponse, got %T", response)
+	}
+	if response, err := server.SendAnswer(playerCtx, SendAnswerRequestObject{GameId: gameID, Body: &SendAnswerJSONRequestBody{Answer: &playerAnswer}}); err != nil {
+		t.Fatalf("SendAnswer player returned error: %v", err)
+	} else if _, ok := response.(SendAnswer200JSONResponse); !ok {
+		t.Fatalf("expected SendAnswer200JSONResponse, got %T", response)
+	}
+	if response, err := server.SendAnswer(thirdCtx, SendAnswerRequestObject{GameId: gameID, Body: &SendAnswerJSONRequestBody{Answer: &thirdAnswer}}); err != nil {
+		t.Fatalf("SendAnswer third returned error: %v", err)
+	} else if _, ok := response.(SendAnswer200JSONResponse); !ok {
+		t.Fatalf("expected SendAnswer200JSONResponse, got %T", response)
+	}
+
+	readerResponse, err := server.GetAnswers(ownerCtx, GetAnswersRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetAnswers reader returned error: %v", err)
+	}
+	readerAnswers := readerResponse.(GetAnswers200JSONResponse)
+	if readerAnswers.Answers == nil || len(*readerAnswers.Answers) != 3 {
+		t.Fatalf("expected 3 reader answers, got %v", readerAnswers.Answers)
+	}
+	for _, answer := range *readerAnswers.Answers {
+		if answer.Label == nil || answer.AnswerUUID == nil || answer.UserUUID == nil || answer.Username == nil {
+			t.Fatalf("expected reader answer to include author fields: %+v", answer)
+		}
+	}
+
+	waitResponse, err := server.GetAnswers(playerCtx, GetAnswersRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetAnswers waiting player returned error: %v", err)
+	}
+	if _, ok := waitResponse.(GetAnswers403JSONResponse); !ok {
+		t.Fatalf("expected GetAnswers403JSONResponse while answering, got %T", waitResponse)
+	}
+	if response, err := server.StartVerification(ownerCtx, StartVerificationRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("StartVerification returned error: %v", err)
+	} else if _, ok := response.(StartVerification200JSONResponse); !ok {
+		t.Fatalf("expected StartVerification200JSONResponse, got %T", response)
+	}
+	verifyWaitResponse, err := server.GetAnswers(playerCtx, GetAnswersRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetAnswers verifying player returned error: %v", err)
+	}
+	if _, ok := verifyWaitResponse.(GetAnswers403JSONResponse); !ok {
+		t.Fatalf("expected GetAnswers403JSONResponse while verifying, got %T", verifyWaitResponse)
+	}
+	if response, err := server.DeleteAnswer(playerCtx, DeleteAnswerRequestObject{GameId: gameID, AnswerUUID: *(*readerAnswers.Answers)[0].AnswerUUID}); err != nil {
+		t.Fatalf("DeleteAnswer player returned error: %v", err)
+	} else if _, ok := response.(DeleteAnswer403JSONResponse); !ok {
+		t.Fatalf("expected DeleteAnswer403JSONResponse, got %T", response)
+	}
+	if response, err := server.DeleteAnswer(ownerCtx, DeleteAnswerRequestObject{GameId: gameID, AnswerUUID: *(*readerAnswers.Answers)[0].AnswerUUID}); err != nil {
+		t.Fatalf("DeleteAnswer owner returned error: %v", err)
+	} else if _, ok := response.(DeleteAnswer200JSONResponse); !ok {
+		t.Fatalf("expected DeleteAnswer200JSONResponse, got %T", response)
+	}
+	if response, err := server.StartVoting(ownerCtx, StartVotingRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("StartVoting returned error: %v", err)
+	} else if _, ok := response.(StartVoting200JSONResponse); !ok {
+		t.Fatalf("expected StartVoting200JSONResponse, got %T", response)
+	}
+
+	playerResponse, err := server.GetAnswers(playerCtx, GetAnswersRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetAnswers player returned error: %v", err)
+	}
+	playerAnswers := playerResponse.(GetAnswers200JSONResponse)
+	if playerAnswers.Answers == nil || len(*playerAnswers.Answers) != 2 {
+		t.Fatalf("expected 2 player answers after deletion, got %+v", playerAnswers.Answers)
+	}
+	for _, answer := range *playerAnswers.Answers {
+		if answer.UserUUID != nil || answer.Username != nil {
+			t.Fatalf("expected player answer to hide author fields: %+v", answer)
+		}
+	}
+}
+
+func TestVotingRevealAndStatusEndpoints(t *testing.T) {
+	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
+	third := addAPIPlayer(t, server, gameID, "third")
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+	thirdCtx := context.WithValue(context.Background(), SessionCookieValueKey, third.UserToken.String())
+	if response, err := server.StartGame(ownerCtx, StartGameRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("StartGame returned error: %v", err)
+	} else if _, ok := response.(StartGame200JSONResponse); !ok {
+		t.Fatalf("expected StartGame200JSONResponse, got %T", response)
+	}
+	ownerAnswer := "owner answer"
+	playerAnswer := "player answer"
+	thirdAnswer := "third answer"
+	if _, err := server.SendAnswer(ownerCtx, SendAnswerRequestObject{GameId: gameID, Body: &SendAnswerJSONRequestBody{Answer: &ownerAnswer}}); err != nil {
+		t.Fatalf("SendAnswer owner returned error: %v", err)
+	}
+	if _, err := server.SendAnswer(playerCtx, SendAnswerRequestObject{GameId: gameID, Body: &SendAnswerJSONRequestBody{Answer: &playerAnswer}}); err != nil {
+		t.Fatalf("SendAnswer player returned error: %v", err)
+	}
+	if _, err := server.SendAnswer(thirdCtx, SendAnswerRequestObject{GameId: gameID, Body: &SendAnswerJSONRequestBody{Answer: &thirdAnswer}}); err != nil {
+		t.Fatalf("SendAnswer third returned error: %v", err)
+	}
+	statusResponse, err := server.GetGameStatus(playerCtx, GetGameStatusRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetGameStatus returned error: %v", err)
+	}
+	status := statusResponse.(GetGameStatus200JSONResponse)
+	if status.Round == nil || *status.Round != 1 || status.RoundStatus == nil || *status.RoundStatus != "answering" {
+		t.Fatalf("unexpected status response: %+v", status)
+	}
+	if status.RoundMasterUUID == nil || *status.RoundMasterUUID != *owner.UserUUID {
+		t.Fatalf("expected owner as round master, got %+v", status.RoundMasterUUID)
+	}
+	if status.CurrentAnswer == nil || *status.CurrentAnswer != playerAnswer {
+		t.Fatalf("expected current answer %q, got %+v", playerAnswer, status.CurrentAnswer)
+	}
+	if status.CurrentAnswerUUID == nil {
+		t.Fatal("expected current answer UUID")
+	}
+
+	if response, err := server.StartVerification(ownerCtx, StartVerificationRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("StartVerification returned error: %v", err)
+	} else if _, ok := response.(StartVerification200JSONResponse); !ok {
+		t.Fatalf("expected StartVerification200JSONResponse, got %T", response)
+	}
+	if response, err := server.StartVoting(ownerCtx, StartVotingRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("StartVoting returned error: %v", err)
+	} else if _, ok := response.(StartVoting200JSONResponse); !ok {
+		t.Fatalf("expected StartVoting200JSONResponse, got %T", response)
+	}
+	answersResponse, err := server.GetAnswers(playerCtx, GetAnswersRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetAnswers returned error: %v", err)
+	}
+	answers := answersResponse.(GetAnswers200JSONResponse)
+	if answers.Answers == nil || len(*answers.Answers) != 3 {
+		t.Fatalf("expected 3 answers, got %+v", answers.Answers)
+	}
+	masterVoteResponse, err := server.VoteForAnswer(ownerCtx, VoteForAnswerRequestObject{GameId: gameID, Body: &VoteForAnswerJSONRequestBody{AnswerUUID: (*answers.Answers)[0].AnswerUUID}})
+	if err != nil {
+		t.Fatalf("VoteForAnswer master returned error: %v", err)
+	}
+	if _, ok := masterVoteResponse.(VoteForAnswer403JSONResponse); !ok {
+		t.Fatalf("expected VoteForAnswer403JSONResponse, got %T", masterVoteResponse)
+	}
+	if response, err := server.VoteForAnswer(playerCtx, VoteForAnswerRequestObject{GameId: gameID, Body: &VoteForAnswerJSONRequestBody{AnswerUUID: (*answers.Answers)[0].AnswerUUID}}); err != nil {
+		t.Fatalf("VoteForAnswer returned error: %v", err)
+	} else if _, ok := response.(VoteForAnswer200JSONResponse); !ok {
+		t.Fatalf("expected VoteForAnswer200JSONResponse, got %T", response)
+	}
+	if response, err := server.VoteForAnswer(thirdCtx, VoteForAnswerRequestObject{GameId: gameID, Body: &VoteForAnswerJSONRequestBody{AnswerUUID: (*answers.Answers)[0].AnswerUUID}}); err != nil {
+		t.Fatalf("VoteForAnswer third returned error: %v", err)
+	} else if _, ok := response.(VoteForAnswer200JSONResponse); !ok {
+		t.Fatalf("expected VoteForAnswer200JSONResponse, got %T", response)
+	}
+	statusResponse, err = server.GetGameStatus(playerCtx, GetGameStatusRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetGameStatus after vote returned error: %v", err)
+	}
+	status = statusResponse.(GetGameStatus200JSONResponse)
+	if status.ReceivedVotes == nil || *status.ReceivedVotes != 2 {
+		t.Fatalf("expected two received votes, got %+v", status.ReceivedVotes)
+	}
+	triggerResponse, err := server.TriggerReveal(ownerCtx, TriggerRevealRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("TriggerReveal returned error: %v", err)
+	}
+	revealed := triggerResponse.(TriggerReveal200JSONResponse)
+	if revealed.Answers == nil || len(*revealed.Answers) != 3 {
+		t.Fatalf("expected 3 revealed answers, got %+v", revealed.Answers)
+	}
+	voteCount := 0
+	for _, answer := range *revealed.Answers {
+		if answer.Votes != nil {
+			voteCount += len(*answer.Votes)
+		}
+	}
+	if voteCount != 2 {
+		t.Fatalf("expected two revealed votes, got %d", voteCount)
+	}
+	if response, err := server.NextRound(ownerCtx, NextRoundRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("NextRound returned error: %v", err)
+	} else if _, ok := response.(NextRound200JSONResponse); !ok {
+		t.Fatalf("expected NextRound200JSONResponse, got %T", response)
+	}
+}
+
+func TestRevealEndpointRequiresAllEligiblePlayersToVote(t *testing.T) {
+	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+	secondName := "second"
+	secondResponse, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &secondName}})
+	if err != nil {
+		t.Fatalf("CreateUser second returned error: %v", err)
+	}
+	second := secondResponse.(CreateUser201JSONResponse)
+	secondCtx := context.WithValue(context.Background(), SessionCookieValueKey, second.UserToken.String())
+	if response, err := server.JoinGame(secondCtx, JoinGameRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("JoinGame second returned error: %v", err)
+	} else if _, ok := response.(JoinGame200JSONResponse); !ok {
+		t.Fatalf("expected JoinGame200JSONResponse, got %T", response)
+	}
+	firstPlace := 1
+	secondPlace := 2
+	thirdPlace := 3
+	playOrder := []struct {
+		Place    *int  `json:"place,omitempty"`
+		UserUUID *UUID `json:"userUUID,omitempty"`
+	}{
+		{Place: &firstPlace, UserUUID: player.UserUUID},
+		{Place: &secondPlace, UserUUID: owner.UserUUID},
+		{Place: &thirdPlace, UserUUID: second.UserUUID},
+	}
+	if response, err := server.SetPlayOrder(ownerCtx, SetPlayOrderRequestObject{GameId: gameID, Body: &SetPlayOrderJSONRequestBody{PlayOrder: &playOrder}}); err != nil {
+		t.Fatalf("SetPlayOrder returned error: %v", err)
+	} else if _, ok := response.(SetPlayOrder200JSONResponse); !ok {
+		t.Fatalf("expected SetPlayOrder200JSONResponse, got %T", response)
+	}
+	if response, err := server.StartGame(ownerCtx, StartGameRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("StartGame returned error: %v", err)
+	} else if _, ok := response.(StartGame200JSONResponse); !ok {
+		t.Fatalf("expected StartGame200JSONResponse, got %T", response)
+	}
+	for _, entry := range []struct {
+		ctx    context.Context
+		answer string
+	}{
+		{ctx: ownerCtx, answer: "owner answer"},
+		{ctx: playerCtx, answer: "player answer"},
+		{ctx: secondCtx, answer: "second answer"},
+	} {
+		if response, err := server.SendAnswer(entry.ctx, SendAnswerRequestObject{GameId: gameID, Body: &SendAnswerJSONRequestBody{Answer: &entry.answer}}); err != nil {
+			t.Fatalf("SendAnswer returned error: %v", err)
+		} else if _, ok := response.(SendAnswer200JSONResponse); !ok {
+			t.Fatalf("expected SendAnswer200JSONResponse, got %T", response)
+		}
+	}
+	if response, err := server.StartVerification(ownerCtx, StartVerificationRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("StartVerification returned error: %v", err)
+	} else if _, ok := response.(StartVerification200JSONResponse); !ok {
+		t.Fatalf("expected StartVerification200JSONResponse, got %T", response)
+	}
+	if response, err := server.StartVoting(ownerCtx, StartVotingRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("StartVoting returned error: %v", err)
+	} else if _, ok := response.(StartVoting200JSONResponse); !ok {
+		t.Fatalf("expected StartVoting200JSONResponse, got %T", response)
+	}
+	answersResponse, err := server.GetAnswers(playerCtx, GetAnswersRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetAnswers returned error: %v", err)
+	}
+	answers := answersResponse.(GetAnswers200JSONResponse)
+	if answers.Answers == nil || len(*answers.Answers) == 0 {
+		t.Fatalf("expected answers, got %+v", answers.Answers)
+	}
+	if response, err := server.VoteForAnswer(ownerCtx, VoteForAnswerRequestObject{GameId: gameID, Body: &VoteForAnswerJSONRequestBody{AnswerUUID: (*answers.Answers)[0].AnswerUUID}}); err != nil {
+		t.Fatalf("VoteForAnswer owner returned error: %v", err)
+	} else if _, ok := response.(VoteForAnswer200JSONResponse); !ok {
+		t.Fatalf("expected VoteForAnswer200JSONResponse, got %T", response)
+	}
+	if response, err := server.TriggerReveal(playerCtx, TriggerRevealRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("TriggerReveal before all votes returned error: %v", err)
+	} else if _, ok := response.(TriggerReveal400JSONResponse); !ok {
+		t.Fatalf("expected TriggerReveal400JSONResponse before all votes, got %T", response)
+	}
+	if response, err := server.VoteForAnswer(secondCtx, VoteForAnswerRequestObject{GameId: gameID, Body: &VoteForAnswerJSONRequestBody{AnswerUUID: (*answers.Answers)[0].AnswerUUID}}); err != nil {
+		t.Fatalf("VoteForAnswer second returned error: %v", err)
+	} else if _, ok := response.(VoteForAnswer200JSONResponse); !ok {
+		t.Fatalf("expected VoteForAnswer200JSONResponse, got %T", response)
+	}
+	if response, err := server.TriggerReveal(playerCtx, TriggerRevealRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("TriggerReveal after all votes returned error: %v", err)
+	} else if _, ok := response.(TriggerReveal200JSONResponse); !ok {
+		t.Fatalf("expected TriggerReveal200JSONResponse after all votes, got %T", response)
+	}
+}
+
+func TestKickPlayerEndpointRequiresCreator(t *testing.T) {
+	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+
+	forbiddenResponse, err := server.KickPlayer(playerCtx, KickPlayerRequestObject{GameId: gameID, UserUUID: *owner.UserUUID})
+	if err != nil {
+		t.Fatalf("KickPlayer non-owner returned error: %v", err)
+	}
+	if _, ok := forbiddenResponse.(KickPlayer403JSONResponse); !ok {
+		t.Fatalf("expected KickPlayer403JSONResponse, got %T", forbiddenResponse)
+	}
+
+	response, err := server.KickPlayer(ownerCtx, KickPlayerRequestObject{GameId: gameID, UserUUID: *player.UserUUID})
+	if err != nil {
+		t.Fatalf("KickPlayer owner returned error: %v", err)
+	}
+	if _, ok := response.(KickPlayer200JSONResponse); !ok {
+		t.Fatalf("expected KickPlayer200JSONResponse, got %T", response)
+	}
+
+	playOrderResponse, err := server.GetPlayOrder(ownerCtx, GetPlayOrderRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetPlayOrder returned error: %v", err)
+	}
+	playOrder := playOrderResponse.(GetPlayOrder200JSONResponse)
+	if playOrder.PlayOrder == nil || len(*playOrder.PlayOrder) != 1 || *(*playOrder.PlayOrder)[0].UserUUID != *owner.UserUUID {
+		t.Fatalf("expected only owner after kick, got %+v", playOrder.PlayOrder)
+	}
+}
+
+func TestFinishGameEndpointDeletesGameAndRequiresOwner(t *testing.T) {
+	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+
+	forbiddenResponse, err := server.FinishGame(playerCtx, FinishGameRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("FinishGame non-owner returned error: %v", err)
+	}
+	if _, ok := forbiddenResponse.(FinishGame403JSONResponse); !ok {
+		t.Fatalf("expected FinishGame403JSONResponse, got %T", forbiddenResponse)
+	}
+
+	response, err := server.FinishGame(ownerCtx, FinishGameRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("FinishGame owner returned error: %v", err)
+	}
+	if _, ok := response.(FinishGame200JSONResponse); !ok {
+		t.Fatalf("expected FinishGame200JSONResponse, got %T", response)
+	}
+
+	statusResponse, err := server.GetGameStatus(ownerCtx, GetGameStatusRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetGameStatus after finish returned error: %v", err)
+	}
+	if _, ok := statusResponse.(GetGameStatus404JSONResponse); !ok {
+		t.Fatalf("expected GetGameStatus404JSONResponse after finish, got %T", statusResponse)
+	}
+}
+
+func TestLeaveGameEndpointRemovesPlayer(t *testing.T) {
+	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+
+	response, err := server.LeaveGame(playerCtx, LeaveGameRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("LeaveGame returned error: %v", err)
+	}
+	if _, ok := response.(LeaveGame200JSONResponse); !ok {
+		t.Fatalf("expected LeaveGame200JSONResponse, got %T", response)
+	}
+
+	statusResponse, err := server.GetGameStatus(playerCtx, GetGameStatusRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetGameStatus leaving player returned error: %v", err)
+	}
+	if _, ok := statusResponse.(GetGameStatus403JSONResponse); !ok {
+		t.Fatalf("expected GetGameStatus403JSONResponse, got %T", statusResponse)
+	}
+
+	playOrderResponse, err := server.GetPlayOrder(ownerCtx, GetPlayOrderRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetPlayOrder returned error: %v", err)
+	}
+	playOrder := playOrderResponse.(GetPlayOrder200JSONResponse)
+	if playOrder.PlayOrder == nil || len(*playOrder.PlayOrder) != 1 || *(*playOrder.PlayOrder)[0].UserUUID != *owner.UserUUID {
+		t.Fatalf("expected only owner after leave, got %+v", playOrder.PlayOrder)
+	}
+}
+
+func TestLeaveGameEndpointTransfersOwnership(t *testing.T) {
+	server, gameID, owner, player := serverWithGameAndJoinedPlayer(t)
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+
+	response, err := server.LeaveGame(ownerCtx, LeaveGameRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("LeaveGame owner returned error: %v", err)
+	}
+	if _, ok := response.(LeaveGame200JSONResponse); !ok {
+		t.Fatalf("expected LeaveGame200JSONResponse, got %T", response)
+	}
+
+	statusResponse, err := server.GetGameStatus(playerCtx, GetGameStatusRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetGameStatus returned error: %v", err)
+	}
+	status := statusResponse.(GetGameStatus200JSONResponse)
+	if status.GameMasterUUID == nil || *status.GameMasterUUID != *player.UserUUID {
+		t.Fatalf("expected ownership transferred to player, got %v", status.GameMasterUUID)
+	}
+}
+
+func TestLeaveGameEndpointReturnsUnauthorizedWithoutSession(t *testing.T) {
+	server, gameID, _, _ := serverWithGameAndJoinedPlayer(t)
+
+	response, err := server.LeaveGame(context.Background(), LeaveGameRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("LeaveGame returned error: %v", err)
+	}
+	if _, ok := response.(LeaveGame401JSONResponse); !ok {
+		t.Fatalf("expected LeaveGame401JSONResponse, got %T", response)
+	}
+}
+
+func serverWithGameAndJoinedPlayer(t *testing.T) (*StrictServer, string, CreateUser201JSONResponse, CreateUser201JSONResponse) {
+	t.Helper()
+
+	server := NewServer()
+	ownerName := "owner"
+	ownerResponse, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &ownerName}})
+	if err != nil {
+		t.Fatalf("CreateUser owner returned error: %v", err)
+	}
+	owner := ownerResponse.(CreateUser201JSONResponse)
+	ownerCtx := context.WithValue(context.Background(), SessionCookieValueKey, owner.UserToken.String())
+	gameResponse, err := server.CreateGame(ownerCtx, CreateGameRequestObject{})
+	if err != nil {
+		t.Fatalf("CreateGame returned error: %v", err)
+	}
+	gameID := *gameResponse.(CreateGame201JSONResponse).GameId
+
+	playerName := "player"
+	playerResponse, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &playerName}})
+	if err != nil {
+		t.Fatalf("CreateUser player returned error: %v", err)
+	}
+	player := playerResponse.(CreateUser201JSONResponse)
+	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+	joinResponse, err := server.JoinGame(playerCtx, JoinGameRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("JoinGame returned error: %v", err)
+	}
+	if _, ok := joinResponse.(JoinGame200JSONResponse); !ok {
+		t.Fatalf("expected JoinGame200JSONResponse, got %T", joinResponse)
+	}
+
+	return server, gameID, owner, player
+}
+
+func addAPIPlayer(t *testing.T, server *StrictServer, gameID string, username string) CreateUser201JSONResponse {
+	t.Helper()
+
+	playerResponse, err := server.CreateUser(context.Background(), CreateUserRequestObject{Body: &CreateUserJSONRequestBody{Username: &username}})
+	if err != nil {
+		t.Fatalf("CreateUser %s returned error: %v", username, err)
+	}
+	player := playerResponse.(CreateUser201JSONResponse)
+	playerCtx := context.WithValue(context.Background(), SessionCookieValueKey, player.UserToken.String())
+	joinResponse, err := server.JoinGame(playerCtx, JoinGameRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("JoinGame %s returned error: %v", username, err)
+	}
+	if _, ok := joinResponse.(JoinGame200JSONResponse); !ok {
+		t.Fatalf("expected JoinGame200JSONResponse, got %T", joinResponse)
+	}
+
+	return player
+}
