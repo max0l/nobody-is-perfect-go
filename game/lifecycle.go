@@ -104,6 +104,9 @@ func (s *Service) StartVerification(gameID string, token uuid.UUID) error {
 	if state.status != RoundStatusAnswering {
 		return ErrInvalidRound
 	}
+	if game.gameOwner != user.userID && len(state.answersByUser) < len(game.players) {
+		return ErrInvalidRound
+	}
 
 	state.status = RoundStatusVerifying
 	ensureScrambled(s, state)
@@ -129,7 +132,7 @@ func (s *Service) RevealRound(gameID string, token uuid.UUID) ([]RevealedAnswerV
 	if state.status != RoundStatusVoting && state.status != RoundStatusRevealed {
 		return nil, ErrInvalidRound
 	}
-	if state.status == RoundStatusVoting && len(state.votesByUser) < game.requiredVoteCount(state) {
+	if state.status == RoundStatusVoting && game.gameOwner != user.userID && len(state.votesByUser) < game.requiredVoteCount(state) {
 		return nil, ErrInvalidRound
 	}
 

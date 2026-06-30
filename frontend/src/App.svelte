@@ -15,6 +15,7 @@
   let pollTimer = 0;
   let busy = false;
   let menuOpen = false;
+  let hostSettingsOpen = false;
   let qrOpen = false;
   let profileName = username;
   let joinGameId = gameId;
@@ -33,6 +34,9 @@
   $: canLead = status?.gameMasterUUID === userUUID || status?.roundMasterUUID === userUUID;
   $: currentAnswer = status?.currentAnswer || "";
   $: currentAnswerUUID = status?.currentAnswerUUID || "";
+  $: allPlayersAnswered = (status?.receivedAnswers || 0) >= (status?.playerCount || 0);
+  $: requiredVotes = Math.max((status?.playerCount || 0) - 1, 0);
+  $: allEligiblePlayersVoted = (status?.receivedVotes || 0) >= requiredVotes;
   $: stats = [
     { label: "Players", value: status?.playerCount || 0 },
     ...(["answering", "verifying"].includes(roundStatus) && status?.roundMasterUUID === userUUID ? [{ label: "Answers", value: status?.receivedAnswers || 0 }] : []),
@@ -61,6 +65,7 @@
     gameId = "";
     status = null;
     menuOpen = false;
+    hostSettingsOpen = false;
     qrOpen = false;
     joinOpen = false;
     stopTimers();
@@ -347,6 +352,8 @@
     joinGameId = "";
     joinOpen = false;
     status = null;
+    menuOpen = false;
+    hostSettingsOpen = false;
     localStorage.removeItem("nip.gameId");
     if (location.pathname !== "/") history.pushState(null, "", "/");
   }
@@ -362,6 +369,7 @@
     votedAnswerUUID = "";
     answerDraft = "";
     menuOpen = false;
+    hostSettingsOpen = false;
     qrOpen = false;
     forcedStage = "";
     localStorage.removeItem("nip.gameId");
@@ -383,6 +391,7 @@
     votedAnswerUUID = "";
     answerDraft = "";
     menuOpen = false;
+    hostSettingsOpen = false;
     qrOpen = false;
     forcedStage = "";
     localStorage.removeItem("nip.userUUID");
@@ -403,6 +412,7 @@
     votedAnswerUUID = "";
     answerDraft = "";
     menuOpen = false;
+    hostSettingsOpen = false;
     qrOpen = false;
     forcedStage = "";
     localStorage.removeItem("nip.gameId");
@@ -476,12 +486,15 @@
 
   function needsEmergencyConfirmation(action) {
     if (action === "finish") return true;
-    return action === "reveal" && status?.gameMasterUUID === userUUID && status?.roundMasterUUID !== userUUID;
+    if (action === "startVerification") return isGameOwner && !allPlayersAnswered;
+    if (action === "reveal") return isGameOwner && !allEligiblePlayersVoted;
+    return false;
   }
 
   function confirmEmergencyAction(action) {
     const messages = {
-      reveal: "Only reveal votes as the host in an emergency. Reveal votes now?",
+      startVerification: "Not all players have submitted an answer. Review answers anyway?",
+      reveal: "Not all eligible players have voted. Reveal votes anyway?",
       finish: "Finishing ends the game for everyone. Finish the game now?",
     };
     return window.confirm(messages[action] || "Continue?");
@@ -545,12 +558,17 @@
         <button class="primary" disabled={busy} on:click={() => runAction("start")}>Start game</button>
       {/if}
       {@render ActionMenu(LobbyMenu)}
+      {@render HostSettings()}
     {:else if stage === "answering"}
       {@render GameHeader(`Round ${status?.round || ""}`, "Answering")}
       {@render Stats()}
       {#if status?.roundMasterUUID === userUUID}
         <p class="waiting">You are the round master. You can submit your own answer, then review all answers.</p>
-        {#if canLead}<button class="primary" disabled={busy} on:click={() => runAction("startVerification")}>Review answers</button>{/if}
+        {#if allPlayersAnswered}
+          <button class="primary" disabled={busy} on:click={() => runAction("startVerification")}>Review answers</button>
+        {:else}
+          <p class="waiting">Waiting for all players to submit answers.</p>
+        {/if}
       {/if}
       {#if currentAnswer}
         <section class="submitted-answer" aria-label="Your submitted answer">
@@ -567,6 +585,7 @@
         <button class="primary" type="submit" disabled={busy}>{currentAnswer ? "Overwrite answer" : "Send answer"}</button>
       </form>
       {@render ActionMenu(AnsweringMenu)}
+      {@render HostSettings()}
     {:else if stage === "verifying"}
       {@render GameHeader(`Round ${status?.round || ""}`, "Review answers")}
       {@render Stats()}
@@ -589,12 +608,17 @@
         <p class="waiting">The round master is reviewing the answers.</p>
       {/if}
       {@render ActionMenu(VerifyingMenu)}
+      {@render HostSettings()}
     {:else if stage === "voting"}
       {@render GameHeader(`Round ${status?.round || ""}`, "Voting")}
       {@render Stats()}
       {#if status?.roundMasterUUID === userUUID}
         <p class="waiting">You are the round master. Watch the votes come in, then reveal.</p>
-        {#if canLead}<button class="primary" disabled={busy} on:click={() => runAction("reveal")}>Reveal votes</button>{/if}
+        {#if allEligiblePlayersVoted}
+          <button class="primary" disabled={busy} on:click={() => runAction("reveal")}>Reveal votes</button>
+        {:else}
+          <p class="waiting">Waiting for all eligible players to vote.</p>
+        {/if}
       {:else if answers.length === 0}
         <p class="waiting">Answers are not available yet.</p>
       {:else}
@@ -609,6 +633,7 @@
         </div>
       {/if}
       {@render ActionMenu(VotingMenu)}
+      {@render HostSettings()}
     {:else if stage === "reveal"}
       {@render GameHeader(`Round ${status?.round || ""}`, "Reveal")}
       {#if revealed.length === 0}
@@ -628,6 +653,7 @@
         <p class="waiting">Waiting for the next round.</p>
       {/if}
       {@render ActionMenu(RevealMenu)}
+      {@render HostSettings()}
     {:else if stage === "error"}
       <p class="eyebrow">Problem</p>
       <h1>Could not load game</h1>
@@ -689,37 +715,60 @@
   </section>
 {/snippet}
 
+{#snippet HostSettings()}
+  {#if isGameOwner && gameId && status}
+    <section class:open={hostSettingsOpen} class="action-menu">
+      <button class="menu-toggle" type="button" aria-expanded={hostSettingsOpen} aria-controls="host-settings-panel" on:click={() => (hostSettingsOpen = !hostSettingsOpen)}>
+        <span class="hamburger" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span>Host settings</span>
+      </button>
+      <div id="host-settings-panel" class="menu-panel" hidden={!hostSettingsOpen}>
+        {#if roundStatus === "answering" && status?.roundMasterUUID !== userUUID}
+          <button disabled={busy} on:click={() => runAction("startVerification")}>{allPlayersAnswered ? "Review answers" : "Emergency review answers"}</button>
+        {/if}
+        {#if roundStatus === "answering" && status?.roundMasterUUID === userUUID && !allPlayersAnswered}
+          <button disabled={busy} on:click={() => runAction("startVerification")}>Emergency review answers</button>
+        {/if}
+        {#if roundStatus === "verifying" && status?.roundMasterUUID !== userUUID}
+          <button disabled={busy} on:click={() => runAction("startVoting")}>Emergency start voting</button>
+        {/if}
+        {#if roundStatus === "voting" && (status?.roundMasterUUID !== userUUID || !allEligiblePlayersVoted)}
+          <button class:danger={!allEligiblePlayersVoted} disabled={busy} on:click={() => runAction("reveal")}>{allEligiblePlayersVoted ? "Reveal votes" : "Emergency reveal votes"}</button>
+        {/if}
+        <button class="danger" disabled={busy} on:click={() => runAction("finish")}>Finish game</button>
+      </div>
+    </section>
+  {/if}
+{/snippet}
+
 {#snippet ChooseMenu()}
   <button disabled={busy} on:click={() => runAction("logout")}>Logout</button>
 {/snippet}
 
 {#snippet LobbyMenu()}
   {@render PlayerList()}
-  {@render GameActions(isGameOwner)}
+  {@render GameActions()}
 {/snippet}
 
 {#snippet AnsweringMenu()}
   {@render PlayerList()}
-  {#if canLead && status?.roundMasterUUID !== userUUID}<button disabled={busy} on:click={() => runAction("startVerification")}>Emergency review answers</button>{/if}
-  {@render GameActions(isGameOwner)}
+  {@render GameActions()}
 {/snippet}
 
 {#snippet VerifyingMenu()}
   {@render PlayerList()}
-  {#if canLead && status?.roundMasterUUID !== userUUID}<button disabled={busy} on:click={() => runAction("startVoting")}>Emergency start voting</button>{/if}
-  {@render GameActions(isGameOwner)}
+  {@render GameActions()}
 {/snippet}
 
 {#snippet VotingMenu()}
   {@render PlayerList()}
-  {#if canLead && status?.roundMasterUUID !== userUUID}<button class="danger" disabled={busy} on:click={() => runAction("reveal")}>Emergency reveal votes</button>{/if}
-  {@render GameActions(isGameOwner)}
+  {@render GameActions()}
 {/snippet}
 
 {#snippet RevealMenu()}
   {@render Stats()}
   {@render PlayerList()}
-  {@render GameActions(isGameOwner)}
+  {@render GameActions()}
 {/snippet}
 
 {#snippet PlayerList()}
@@ -734,8 +783,7 @@
   {/if}
 {/snippet}
 
-{#snippet GameActions(showFinish)}
+{#snippet GameActions()}
   <button disabled={busy} on:click={() => runAction("leave")}>Leave game</button>
   <button disabled={busy} on:click={() => runAction("logout")}>Logout</button>
-  {#if showFinish}<button class="danger" disabled={busy} on:click={() => runAction("finish")}>Finish game</button>{/if}
 {/snippet}
