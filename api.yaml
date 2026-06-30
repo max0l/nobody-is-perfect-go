@@ -256,6 +256,8 @@ components:
           type: string
           example: "This is my answer to the question"
           description: The requesting player's current answer for the active round, if they already submitted one
+        currentAnswerUUID:
+          $ref: "#/components/schemas/UUID"
         playerCount:
           type: integer
           example: 4

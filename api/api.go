@@ -337,6 +337,10 @@ func (s *StrictServer) GetGameStatus(ctx context.Context, request GetGameStatusR
 		roundMaster := status.RoundMasterUUID
 		response.RoundStatus = &roundStatus
 		response.RoundMasterUUID = &roundMaster
+		if status.CurrentAnswerID != uuid.Nil {
+			currentAnswerID := status.CurrentAnswerID
+			response.CurrentAnswerUUID = &currentAnswerID
+		}
 	}
 
 	return response, nil

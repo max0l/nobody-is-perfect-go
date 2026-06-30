@@ -503,6 +503,9 @@ func TestVotingRevealAndStatusEndpoints(t *testing.T) {
 	if status.CurrentAnswer == nil || *status.CurrentAnswer != playerAnswer {
 		t.Fatalf("expected current answer %q, got %+v", playerAnswer, status.CurrentAnswer)
 	}
+	if status.CurrentAnswerUUID == nil {
+		t.Fatal("expected current answer UUID")
+	}
 
 	if response, err := server.StartVoting(ownerCtx, StartVotingRequestObject{GameId: gameID}); err != nil {
 		t.Fatalf("StartVoting returned error: %v", err)

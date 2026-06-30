@@ -13,6 +13,7 @@ type StatusView struct {
 	ReceivedAnswers int
 	ReceivedVotes   int
 	CurrentAnswer   string
+	CurrentAnswerID uuid.UUID
 	PlayerCount     int
 	Round           int
 	RoundStatus     RoundStatus
@@ -187,6 +188,7 @@ func (s *Service) GetStatus(gameID string, token uuid.UUID) (StatusView, error) 
 		view.ReceivedVotes = len(state.votesByUser)
 		if answer := state.answersByUser[user.userID]; answer != nil {
 			view.CurrentAnswer = answer.answer
+			view.CurrentAnswerID = answer.answerID
 		}
 	}
 

@@ -683,6 +683,10 @@ func TestGetStatusIncludesCurrentUsersAnswer(t *testing.T) {
 	if status.CurrentAnswer != answer {
 		t.Fatalf("expected current answer %q, got %q", answer, status.CurrentAnswer)
 	}
+	if status.CurrentAnswerID == uuid.Nil {
+		t.Fatal("expected current answer ID")
+	}
+	answerID := status.CurrentAnswerID
 	if status.ReceivedAnswers != 1 {
 		t.Fatalf("expected one received answer, got %d", status.ReceivedAnswers)
 	}
@@ -697,6 +701,9 @@ func TestGetStatusIncludesCurrentUsersAnswer(t *testing.T) {
 	}
 	if status.CurrentAnswer != updatedAnswer {
 		t.Fatalf("expected updated current answer %q, got %q", updatedAnswer, status.CurrentAnswer)
+	}
+	if status.CurrentAnswerID != answerID {
+		t.Fatalf("expected overwritten answer to keep ID %s, got %s", answerID, status.CurrentAnswerID)
 	}
 	if status.ReceivedAnswers != 1 {
 		t.Fatalf("expected overwritten answer not to increase count, got %d", status.ReceivedAnswers)

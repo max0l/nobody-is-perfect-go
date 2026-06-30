@@ -308,6 +308,14 @@ p { margin: 0; }
 .answer-card p { margin-top: 0.2rem; }
 .answer-card small { color: var(--muted); }
 
+.own-answer-note {
+  width: max-content;
+  border-radius: 999px;
+  background: var(--soft);
+  padding: 0.2rem 0.55rem;
+  font-weight: 900;
+}
+
 .answer-card.selected-vote {
   border-color: var(--good);
   background: color-mix(in srgb, var(--good) 14%, var(--surface));
@@ -353,6 +361,7 @@ p { margin: 0; }
   .action-menu { position: relative; }
   .action-menu .menu-toggle { width: 100%; justify-self: stretch; }
   .menu-panel { width: 100%; justify-self: stretch; }
+  .menu-panel button { width: 100%; justify-self: stretch; }
   .answer-card { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
   .answer-card.revealed { grid-template-columns: 1fr; }
   .toast { left: auto; width: min(26rem, calc(100% - 2rem)); right: 1rem; bottom: 1rem; }

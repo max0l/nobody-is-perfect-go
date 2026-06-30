@@ -88,9 +88,10 @@ type GameStartedResponse struct {
 // GameStatusResponse defines model for GameStatusResponse.
 type GameStatusResponse struct {
 	// CurrentAnswer The requesting player's current answer for the active round, if they already submitted one
-	CurrentAnswer  *string `json:"currentAnswer,omitempty"`
-	GameMasterUUID *UUID   `json:"gameMasterUUID,omitempty"`
-	PlayerCount    *int    `json:"playerCount,omitempty"`
+	CurrentAnswer     *string `json:"currentAnswer,omitempty"`
+	CurrentAnswerUUID *UUID   `json:"currentAnswerUUID,omitempty"`
+	GameMasterUUID    *UUID   `json:"gameMasterUUID,omitempty"`
+	PlayerCount       *int    `json:"playerCount,omitempty"`
 
 	// ReceivedAnswers Get the number of answers received from the players
 	ReceivedAnswers *int `json:"receivedAnswers,omitempty"`

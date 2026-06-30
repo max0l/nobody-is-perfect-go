@@ -11,6 +11,7 @@
   let revealed = [];
   let votedAnswerUUID = "";
   let systemStatus = null;
+  let systemStatusOpen = false;
   let pollTimer = 0;
   let busy = false;
   let menuOpen = false;
@@ -31,6 +32,7 @@
   $: isGameOwner = status?.gameMasterUUID === userUUID;
   $: canLead = status?.gameMasterUUID === userUUID || status?.roundMasterUUID === userUUID;
   $: currentAnswer = status?.currentAnswer || "";
+  $: currentAnswerUUID = status?.currentAnswerUUID || "";
   $: stats = [
     { label: "Players", value: status?.playerCount || 0 },
     ...(roundStatus === "answering" && status?.roundMasterUUID === userUUID ? [{ label: "Answers", value: status?.receivedAnswers || 0 }] : []),
@@ -251,6 +253,13 @@
   }
 
   async function loadSystemStatus() {
+    if (systemStatusOpen) {
+      systemStatusOpen = false;
+      return;
+    }
+    systemStatusOpen = true;
+    if (systemStatus) return;
+
     await withBusy(async () => {
       systemStatus = await api("/api/status");
       notice("Server stats updated");
@@ -450,6 +459,10 @@
     return Boolean(answerUUID && votedAnswerUUID && answerUUID === votedAnswerUUID);
   }
 
+  function isCurrentUserAnswer(answerUUID) {
+    return Boolean(answerUUID && currentAnswerUUID && answerUUID === currentAnswerUUID);
+  }
+
   function needsEmergencyConfirmation(action) {
     if (action === "finish") return true;
     return action === "reveal" && status?.gameMasterUUID === userUUID && status?.roundMasterUUID !== userUUID;
@@ -557,6 +570,7 @@
           {#each answers as answer (answer.answerUUID)}
             <article class:selected-vote={isStoredVote(answer.answerUUID)} class="answer-card">
               <div><strong>{answer.label || "?"}</strong>{#if isStoredVote(answer.answerUUID)}<span class="vote-label">Your vote</span>{/if}<p>{answer.answer || ""}</p>{#if answer.username}<small>{answer.username}</small>{/if}</div>
+              {#if isCurrentUserAnswer(answer.answerUUID)}<small class="own-answer-note">Your submitted answer</small>{/if}
               <button disabled={busy} on:click={() => voteForAnswer(answer.answerUUID)}>{isStoredVote(answer.answerUUID) ? "Your vote" : "Vote"}</button>
             </article>
           {/each}
@@ -590,8 +604,8 @@
     {/if}
 
     <section class="system-status" aria-label="Server statistics">
-      <button class="info-button" type="button" disabled={busy} on:click={loadSystemStatus}>Server stats</button>
-      {#if systemStatus}
+      <button class="info-button" type="button" aria-expanded={systemStatusOpen} disabled={busy} on:click={loadSystemStatus}>Server stats</button>
+      {#if systemStatusOpen && systemStatus}
         <div class="system-status-panel">
           <div><span>Games</span><strong>{systemStatus.games || 0}</strong></div>
           <div><span>Players</span><strong>{systemStatus.players || 0}</strong></div>
