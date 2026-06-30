@@ -29,6 +29,7 @@ func TestGameStatusIsValid(t *testing.T) {
 func TestRoundStatusString(t *testing.T) {
 	tests := map[RoundStatus]string{
 		RoundStatusAnswering: "answering",
+		RoundStatusVerifying: "verifying",
 		RoundStatusVoting:    "voting",
 		RoundStatusRevealed:  "revealed",
 		RoundStatus(99):      "unknown",
@@ -42,7 +43,7 @@ func TestRoundStatusString(t *testing.T) {
 }
 
 func TestRoundStatusIsValid(t *testing.T) {
-	if !RoundStatusAnswering.IsValid() || !RoundStatusVoting.IsValid() || !RoundStatusRevealed.IsValid() {
+	if !RoundStatusAnswering.IsValid() || !RoundStatusVerifying.IsValid() || !RoundStatusVoting.IsValid() || !RoundStatusRevealed.IsValid() {
 		t.Fatal("expected defined round statuses to be valid")
 	}
 	if RoundStatus(99).IsValid() {

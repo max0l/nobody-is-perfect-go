@@ -81,6 +81,9 @@ func (s *Service) GetAnswers(gameID string, token uuid.UUID) ([]AnswerView, erro
 	if state.status == RoundStatusAnswering && state.roundMasterID != user.userID {
 		return nil, ErrForbidden
 	}
+	if state.status == RoundStatusVerifying && state.roundMasterID != user.userID {
+		return nil, ErrForbidden
+	}
 
 	ensureScrambled(s, state)
 
@@ -110,6 +113,41 @@ func (s *Service) GetAnswers(gameID string, token uuid.UUID) ([]AnswerView, erro
 	}
 
 	return answers, nil
+}
+
+func (s *Service) DeleteAnswer(gameID string, token uuid.UUID, answerID uuid.UUID) error {
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+
+	game, user, err := s.gameAndUser(gameID, token)
+	if err != nil {
+		return err
+	}
+	state, err := game.activeRoundState()
+	if err != nil {
+		return err
+	}
+	if state.roundMasterID != user.userID {
+		return ErrForbidden
+	}
+	if state.status != RoundStatusVerifying {
+		return ErrInvalidRound
+	}
+	answer := state.answersByID[answerID]
+	if answer == nil {
+		return ErrAnswerNotFound
+	}
+
+	delete(state.answersByID, answerID)
+	delete(state.answersByUser, answer.userID)
+	for i, scrambledID := range state.scrambled {
+		if scrambledID == answerID {
+			state.scrambled = append(state.scrambled[:i], state.scrambled[i+1:]...)
+			break
+		}
+	}
+
+	return nil
 }
 
 func (s *Service) VoteForAnswer(gameID string, token uuid.UUID, answerID uuid.UUID) error {

@@ -585,6 +585,9 @@ func TestKickCurrentRoundMasterRotatesMaster(t *testing.T) {
 	if err := service.SendAnswer(gameID, *third.GetUserToken(), &thirdAnswer); err != nil {
 		t.Fatalf("SendAnswer third returned error: %v", err)
 	}
+	if err := service.StartVerification(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("StartVerification returned error: %v", err)
+	}
 	if err := service.StartVoting(gameID, *owner.GetUserToken()); err != nil {
 		t.Fatalf("StartVoting returned error: %v", err)
 	}
@@ -710,6 +713,74 @@ func TestGetStatusIncludesCurrentUsersAnswer(t *testing.T) {
 	}
 }
 
+func TestVerificationAllowsRoundMasterToDeleteAnswersBeforeVoting(t *testing.T) {
+	service, gameID, owner, player := serviceWithTwoPlayers(t)
+	third := addServicePlayer(t, service, gameID, "third")
+	if err := service.StartGame(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("StartGame returned error: %v", err)
+	}
+	for _, entry := range []struct {
+		user   *User
+		answer string
+	}{
+		{user: owner, answer: "owner answer"},
+		{user: player, answer: "player answer"},
+		{user: third, answer: "third answer"},
+	} {
+		if err := service.SendAnswer(gameID, *entry.user.GetUserToken(), &entry.answer); err != nil {
+			t.Fatalf("SendAnswer returned error: %v", err)
+		}
+	}
+	if err := service.StartVoting(gameID, *owner.GetUserToken()); !errors.Is(err, ErrInvalidRound) {
+		t.Fatalf("expected ErrInvalidRound starting voting before verification, got %v", err)
+	}
+	if err := service.StartVerification(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("StartVerification returned error: %v", err)
+	}
+	status, err := service.GetStatus(gameID, *owner.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetStatus returned error: %v", err)
+	}
+	if status.RoundStatus != RoundStatusVerifying {
+		t.Fatalf("expected verifying status, got %v", status.RoundStatus)
+	}
+	if _, err := service.GetAnswers(gameID, *player.GetUserToken()); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("expected non-master to be forbidden during verification, got %v", err)
+	}
+	answers, err := service.GetAnswers(gameID, *owner.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetAnswers round master returned error: %v", err)
+	}
+	if len(answers) != 3 {
+		t.Fatalf("expected 3 answers before deletion, got %d", len(answers))
+	}
+	if err := service.DeleteAnswer(gameID, *player.GetUserToken(), answers[0].AnswerID); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("expected non-master delete forbidden, got %v", err)
+	}
+	deletedAnswerID := answers[0].AnswerID
+	if err := service.DeleteAnswer(gameID, *owner.GetUserToken(), deletedAnswerID); err != nil {
+		t.Fatalf("DeleteAnswer returned error: %v", err)
+	}
+	if err := service.StartVoting(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("StartVoting returned error: %v", err)
+	}
+	votingAnswers, err := service.GetAnswers(gameID, *player.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetAnswers player returned error: %v", err)
+	}
+	if len(votingAnswers) != 2 {
+		t.Fatalf("expected 2 answers after deletion, got %d", len(votingAnswers))
+	}
+	for _, answer := range votingAnswers {
+		if answer.AnswerID == deletedAnswerID {
+			t.Fatalf("deleted answer appeared during voting: %+v", answer)
+		}
+	}
+	if err := service.DeleteAnswer(gameID, *owner.GetUserToken(), votingAnswers[0].AnswerID); !errors.Is(err, ErrInvalidRound) {
+		t.Fatalf("expected delete after voting to fail with ErrInvalidRound, got %v", err)
+	}
+}
+
 func TestVotingRevealAndNextRoundFlow(t *testing.T) {
 	service, gameID, owner, player := serviceWithTwoPlayers(t)
 	third := addServicePlayer(t, service, gameID, "third")
@@ -727,6 +798,9 @@ func TestVotingRevealAndNextRoundFlow(t *testing.T) {
 	}
 	if err := service.SendAnswer(gameID, *third.GetUserToken(), &thirdAnswer); err != nil {
 		t.Fatalf("SendAnswer third returned error: %v", err)
+	}
+	if err := service.StartVerification(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("StartVerification returned error: %v", err)
 	}
 	if err := service.StartVoting(gameID, *owner.GetUserToken()); err != nil {
 		t.Fatalf("StartVoting returned error: %v", err)
@@ -832,6 +906,9 @@ func TestRevealRequiresAllEligiblePlayersToVote(t *testing.T) {
 			t.Fatalf("SendAnswer returned error: %v", err)
 		}
 	}
+	if err := service.StartVerification(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("StartVerification returned error: %v", err)
+	}
 	if err := service.StartVoting(gameID, *owner.GetUserToken()); err != nil {
 		t.Fatalf("StartVoting returned error: %v", err)
 	}
@@ -888,6 +965,9 @@ func TestAnswersAreRoundScopedAndReaderSeesAuthors(t *testing.T) {
 
 	if _, err := service.GetAnswers(gameID, *player.GetUserToken()); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("expected non-master to wait during answering, got %v", err)
+	}
+	if err := service.StartVerification(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("StartVerification returned error: %v", err)
 	}
 	if err := service.StartVoting(gameID, *owner.GetUserToken()); err != nil {
 		t.Fatalf("StartVoting returned error: %v", err)

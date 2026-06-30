@@ -217,6 +217,20 @@ components:
           type: string
           example: "Voting started successfully"
 
+    VerificationStartedResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Verification started successfully"
+
+    AnswerDeletedResponse:
+      type: object
+      properties:
+        message:
+          type: string
+          example: "Answer deleted successfully"
+
     PlayerKickedResponse:
       type: object
       properties:
@@ -838,7 +852,7 @@ paths:
 
     get:
       summary: Get the answers for the game
-      description: Will return the answers for the game only if you are game master
+      description: Returns answers for the round master during answering/verification and for players during voting/reveal
       operationId: getAnswers
       security:
         - sessionCookie: []
@@ -856,6 +870,103 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AnswersResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
+
+  /api/game/{gameId}/answers/{answerUUID}:
+    delete:
+      summary: Delete an answer during verification
+      description: Current round master can delete submitted answers before voting starts
+      operationId: deleteAnswer
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "chug.value.funds"
+        - name: answerUUID
+          in: path
+          required: true
+          schema:
+            $ref: "#/components/schemas/UUID"
+      responses:
+        '200':
+          description: Answer deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnswerDeletedResponse"
+        '400':
+          description: Bad request, missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BadRequestResponse"
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnauthorizedResponse"
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForbiddenResponse"
+        '404':
+          description: Game or answer not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GameNotFoundResponse"
+
+  /api/game/{gameId}/startVerification:
+    post:
+      summary: Start verification for the current round
+      description: Current round master or game creator starts answer verification before voting
+      operationId: startVerification
+      security:
+        - sessionCookie: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+            example: "chug.value.funds"
+      responses:
+        '200':
+          description: Verification started successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationStartedResponse"
         '400':
           description: Bad request, missing required fields
           content:

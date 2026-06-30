@@ -132,6 +132,35 @@ func (s *StrictServer) SendAnswer(ctx context.Context, request SendAnswerRequest
 	return SendAnswer200JSONResponse{Message: &msg}, nil
 }
 
+func (s *StrictServer) DeleteAnswer(ctx context.Context, request DeleteAnswerRequestObject) (DeleteAnswerResponseObject, error) {
+	token, ok := sessionToken(ctx)
+	if !ok {
+		msg := UnauthorizedError
+		return DeleteAnswer401JSONResponse{Error: &msg}, nil
+	}
+
+	if err := s.gameService.DeleteAnswer(request.GameId, token, request.AnswerUUID); err != nil {
+		if errors.Is(err, game.ErrGameNotFound) || errors.Is(err, game.ErrAnswerNotFound) {
+			msg := GameNotFoundError
+			return DeleteAnswer404JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrUserNotFound) {
+			msg := UnauthorizedError
+			return DeleteAnswer401JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrForbidden) {
+			msg := ForbiddenError
+			return DeleteAnswer403JSONResponse{Error: &msg}, nil
+		}
+
+		msg := BadRequestError
+		return DeleteAnswer400JSONResponse{Error: &msg}, nil
+	}
+
+	msg := "answer deleted successfully"
+	return DeleteAnswer200JSONResponse{Message: &msg}, nil
+}
+
 func (s *StrictServer) FinishGame(ctx context.Context, request FinishGameRequestObject) (FinishGameResponseObject, error) {
 	token, ok := sessionToken(ctx)
 	if !ok {
@@ -596,6 +625,35 @@ func (s *StrictServer) StartVoting(ctx context.Context, request StartVotingReque
 
 	msg := "voting started successfully"
 	return StartVoting200JSONResponse{Message: &msg}, nil
+}
+
+func (s *StrictServer) StartVerification(ctx context.Context, request StartVerificationRequestObject) (StartVerificationResponseObject, error) {
+	token, ok := sessionToken(ctx)
+	if !ok {
+		msg := UnauthorizedError
+		return StartVerification401JSONResponse{Error: &msg}, nil
+	}
+
+	if err := s.gameService.StartVerification(request.GameId, token); err != nil {
+		if errors.Is(err, game.ErrGameNotFound) {
+			msg := GameNotFoundError
+			return StartVerification404JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrUserNotFound) {
+			msg := UnauthorizedError
+			return StartVerification401JSONResponse{Error: &msg}, nil
+		}
+		if errors.Is(err, game.ErrForbidden) {
+			msg := ForbiddenError
+			return StartVerification403JSONResponse{Error: &msg}, nil
+		}
+
+		msg := BadRequestError
+		return StartVerification400JSONResponse{Error: &msg}, nil
+	}
+
+	msg := "verification started successfully"
+	return StartVerification200JSONResponse{Message: &msg}, nil
 }
 
 func NewServer() *StrictServer {

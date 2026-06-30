@@ -448,6 +448,28 @@ func TestAnswerEndpointShowsAuthorsOnlyToCurrentReader(t *testing.T) {
 	if _, ok := waitResponse.(GetAnswers403JSONResponse); !ok {
 		t.Fatalf("expected GetAnswers403JSONResponse while answering, got %T", waitResponse)
 	}
+	if response, err := server.StartVerification(ownerCtx, StartVerificationRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("StartVerification returned error: %v", err)
+	} else if _, ok := response.(StartVerification200JSONResponse); !ok {
+		t.Fatalf("expected StartVerification200JSONResponse, got %T", response)
+	}
+	verifyWaitResponse, err := server.GetAnswers(playerCtx, GetAnswersRequestObject{GameId: gameID})
+	if err != nil {
+		t.Fatalf("GetAnswers verifying player returned error: %v", err)
+	}
+	if _, ok := verifyWaitResponse.(GetAnswers403JSONResponse); !ok {
+		t.Fatalf("expected GetAnswers403JSONResponse while verifying, got %T", verifyWaitResponse)
+	}
+	if response, err := server.DeleteAnswer(playerCtx, DeleteAnswerRequestObject{GameId: gameID, AnswerUUID: *(*readerAnswers.Answers)[0].AnswerUUID}); err != nil {
+		t.Fatalf("DeleteAnswer player returned error: %v", err)
+	} else if _, ok := response.(DeleteAnswer403JSONResponse); !ok {
+		t.Fatalf("expected DeleteAnswer403JSONResponse, got %T", response)
+	}
+	if response, err := server.DeleteAnswer(ownerCtx, DeleteAnswerRequestObject{GameId: gameID, AnswerUUID: *(*readerAnswers.Answers)[0].AnswerUUID}); err != nil {
+		t.Fatalf("DeleteAnswer owner returned error: %v", err)
+	} else if _, ok := response.(DeleteAnswer200JSONResponse); !ok {
+		t.Fatalf("expected DeleteAnswer200JSONResponse, got %T", response)
+	}
 	if response, err := server.StartVoting(ownerCtx, StartVotingRequestObject{GameId: gameID}); err != nil {
 		t.Fatalf("StartVoting returned error: %v", err)
 	} else if _, ok := response.(StartVoting200JSONResponse); !ok {
@@ -459,6 +481,9 @@ func TestAnswerEndpointShowsAuthorsOnlyToCurrentReader(t *testing.T) {
 		t.Fatalf("GetAnswers player returned error: %v", err)
 	}
 	playerAnswers := playerResponse.(GetAnswers200JSONResponse)
+	if playerAnswers.Answers == nil || len(*playerAnswers.Answers) != 2 {
+		t.Fatalf("expected 2 player answers after deletion, got %+v", playerAnswers.Answers)
+	}
 	for _, answer := range *playerAnswers.Answers {
 		if answer.UserUUID != nil || answer.Username != nil {
 			t.Fatalf("expected player answer to hide author fields: %+v", answer)
@@ -507,6 +532,11 @@ func TestVotingRevealAndStatusEndpoints(t *testing.T) {
 		t.Fatal("expected current answer UUID")
 	}
 
+	if response, err := server.StartVerification(ownerCtx, StartVerificationRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("StartVerification returned error: %v", err)
+	} else if _, ok := response.(StartVerification200JSONResponse); !ok {
+		t.Fatalf("expected StartVerification200JSONResponse, got %T", response)
+	}
 	if response, err := server.StartVoting(ownerCtx, StartVotingRequestObject{GameId: gameID}); err != nil {
 		t.Fatalf("StartVoting returned error: %v", err)
 	} else if _, ok := response.(StartVoting200JSONResponse); !ok {
@@ -603,6 +633,11 @@ func TestRevealEndpointRequiresAllEligiblePlayersToVote(t *testing.T) {
 		} else if _, ok := response.(SendAnswer200JSONResponse); !ok {
 			t.Fatalf("expected SendAnswer200JSONResponse, got %T", response)
 		}
+	}
+	if response, err := server.StartVerification(ownerCtx, StartVerificationRequestObject{GameId: gameID}); err != nil {
+		t.Fatalf("StartVerification returned error: %v", err)
+	} else if _, ok := response.(StartVerification200JSONResponse); !ok {
+		t.Fatalf("expected StartVerification200JSONResponse, got %T", response)
 	}
 	if response, err := server.StartVoting(ownerCtx, StartVotingRequestObject{GameId: gameID}); err != nil {
 		t.Fatalf("StartVoting returned error: %v", err)

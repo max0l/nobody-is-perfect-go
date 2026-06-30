@@ -20,6 +20,11 @@ type Answer struct {
 	Username   *string `json:"username,omitempty"`
 }
 
+// AnswerDeletedResponse defines model for AnswerDeletedResponse.
+type AnswerDeletedResponse struct {
+	Message *string `json:"message,omitempty"`
+}
+
 // AnswerReceivedResponse defines model for AnswerReceivedResponse.
 type AnswerReceivedResponse struct {
 	Message *string `json:"message,omitempty"`
@@ -192,6 +197,11 @@ type User struct {
 type UserToken struct {
 	UserToken *UUID `json:"userToken,omitempty"`
 	UserUUID  *UUID `json:"userUUID,omitempty"`
+}
+
+// VerificationStartedResponse defines model for VerificationStartedResponse.
+type VerificationStartedResponse struct {
+	Message *string `json:"message,omitempty"`
 }
 
 // VoteRecordedResponse defines model for VoteRecordedResponse.

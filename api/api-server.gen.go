@@ -35,6 +35,9 @@ type ServerInterface interface {
 	// Send an answer for the game
 	// (POST /api/game/{gameId}/answers)
 	SendAnswer(c *gin.Context, gameId string)
+	// Delete an answer during verification
+	// (DELETE /api/game/{gameId}/answers/{answerUUID})
+	DeleteAnswer(c *gin.Context, gameId string, answerUUID UUID)
 	// Finish the game
 	// (POST /api/game/{gameId}/finish)
 	FinishGame(c *gin.Context, gameId string)
@@ -56,6 +59,9 @@ type ServerInterface interface {
 	// Start the game
 	// (POST /api/game/{gameId}/start)
 	StartGame(c *gin.Context, gameId string)
+	// Start verification for the current round
+	// (POST /api/game/{gameId}/startVerification)
+	StartVerification(c *gin.Context, gameId string)
 	// Start voting for the current round
 	// (POST /api/game/{gameId}/startVoting)
 	StartVoting(c *gin.Context, gameId string)
@@ -172,6 +178,41 @@ func (siw *ServerInterfaceWrapper) SendAnswer(c *gin.Context) {
 	}
 
 	siw.Handler.SendAnswer(c, gameId)
+}
+
+// DeleteAnswer operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAnswer(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "gameId" -------------
+	var gameId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "gameId", c.Param("gameId"), &gameId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter gameId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	// ------------- Path parameter "answerUUID" -------------
+	var answerUUID UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "answerUUID", c.Param("answerUUID"), &answerUUID, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter answerUUID: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(SessionCookieScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.DeleteAnswer(c, gameId, answerUUID)
 }
 
 // FinishGame operation middleware
@@ -363,6 +404,32 @@ func (siw *ServerInterfaceWrapper) StartGame(c *gin.Context) {
 	}
 
 	siw.Handler.StartGame(c, gameId)
+}
+
+// StartVerification operation middleware
+func (siw *ServerInterfaceWrapper) StartVerification(c *gin.Context) {
+
+	var err error
+
+	// ------------- Path parameter "gameId" -------------
+	var gameId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "gameId", c.Param("gameId"), &gameId, runtime.BindStyledParameterOptions{Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter gameId: %w", err), http.StatusBadRequest)
+		return
+	}
+
+	c.Set(SessionCookieScopes, []string{})
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		middleware(c)
+		if c.IsAborted() {
+			return
+		}
+	}
+
+	siw.Handler.StartVerification(c, gameId)
 }
 
 // StartVoting operation middleware
@@ -591,6 +658,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.POST(options.BaseURL+"/api/create/user", wrapper.CreateUser)
 	router.GET(options.BaseURL+"/api/game/:gameId/answers", wrapper.GetAnswers)
 	router.POST(options.BaseURL+"/api/game/:gameId/answers", wrapper.SendAnswer)
+	router.DELETE(options.BaseURL+"/api/game/:gameId/answers/:answerUUID", wrapper.DeleteAnswer)
 	router.POST(options.BaseURL+"/api/game/:gameId/finish", wrapper.FinishGame)
 	router.POST(options.BaseURL+"/api/game/:gameId/leave", wrapper.LeaveGame)
 	router.POST(options.BaseURL+"/api/game/:gameId/next", wrapper.NextRound)
@@ -598,6 +666,7 @@ func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options
 	router.GET(options.BaseURL+"/api/game/:gameId/reveal", wrapper.RevealVotes)
 	router.POST(options.BaseURL+"/api/game/:gameId/reveal", wrapper.TriggerReveal)
 	router.POST(options.BaseURL+"/api/game/:gameId/start", wrapper.StartGame)
+	router.POST(options.BaseURL+"/api/game/:gameId/startVerification", wrapper.StartVerification)
 	router.POST(options.BaseURL+"/api/game/:gameId/startVoting", wrapper.StartVoting)
 	router.GET(options.BaseURL+"/api/game/:gameId/status", wrapper.GetGameStatus)
 	router.POST(options.BaseURL+"/api/game/:gameId/vote", wrapper.VoteForAnswer)
@@ -788,6 +857,60 @@ func (response SendAnswer403JSONResponse) VisitSendAnswerResponse(w http.Respons
 type SendAnswer404JSONResponse GameNotFoundResponse
 
 func (response SendAnswer404JSONResponse) VisitSendAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAnswerRequestObject struct {
+	GameId     string `json:"gameId"`
+	AnswerUUID UUID   `json:"answerUUID"`
+}
+
+type DeleteAnswerResponseObject interface {
+	VisitDeleteAnswerResponse(w http.ResponseWriter) error
+}
+
+type DeleteAnswer200JSONResponse AnswerDeletedResponse
+
+func (response DeleteAnswer200JSONResponse) VisitDeleteAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAnswer400JSONResponse BadRequestResponse
+
+func (response DeleteAnswer400JSONResponse) VisitDeleteAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAnswer401JSONResponse UnauthorizedResponse
+
+func (response DeleteAnswer401JSONResponse) VisitDeleteAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAnswer403JSONResponse ForbiddenResponse
+
+func (response DeleteAnswer403JSONResponse) VisitDeleteAnswerResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type DeleteAnswer404JSONResponse GameNotFoundResponse
+
+func (response DeleteAnswer404JSONResponse) VisitDeleteAnswerResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
 
@@ -1160,6 +1283,59 @@ func (response StartGame403JSONResponse) VisitStartGameResponse(w http.ResponseW
 type StartGame404JSONResponse GameNotFoundResponse
 
 func (response StartGame404JSONResponse) VisitStartGameResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartVerificationRequestObject struct {
+	GameId string `json:"gameId"`
+}
+
+type StartVerificationResponseObject interface {
+	VisitStartVerificationResponse(w http.ResponseWriter) error
+}
+
+type StartVerification200JSONResponse VerificationStartedResponse
+
+func (response StartVerification200JSONResponse) VisitStartVerificationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartVerification400JSONResponse BadRequestResponse
+
+func (response StartVerification400JSONResponse) VisitStartVerificationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartVerification401JSONResponse UnauthorizedResponse
+
+func (response StartVerification401JSONResponse) VisitStartVerificationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartVerification403JSONResponse ForbiddenResponse
+
+func (response StartVerification403JSONResponse) VisitStartVerificationResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+
+	return json.NewEncoder(w).Encode(response)
+}
+
+type StartVerification404JSONResponse GameNotFoundResponse
+
+func (response StartVerification404JSONResponse) VisitStartVerificationResponse(w http.ResponseWriter) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
 
@@ -1548,6 +1724,9 @@ type StrictServerInterface interface {
 	// Send an answer for the game
 	// (POST /api/game/{gameId}/answers)
 	SendAnswer(ctx context.Context, request SendAnswerRequestObject) (SendAnswerResponseObject, error)
+	// Delete an answer during verification
+	// (DELETE /api/game/{gameId}/answers/{answerUUID})
+	DeleteAnswer(ctx context.Context, request DeleteAnswerRequestObject) (DeleteAnswerResponseObject, error)
 	// Finish the game
 	// (POST /api/game/{gameId}/finish)
 	FinishGame(ctx context.Context, request FinishGameRequestObject) (FinishGameResponseObject, error)
@@ -1569,6 +1748,9 @@ type StrictServerInterface interface {
 	// Start the game
 	// (POST /api/game/{gameId}/start)
 	StartGame(ctx context.Context, request StartGameRequestObject) (StartGameResponseObject, error)
+	// Start verification for the current round
+	// (POST /api/game/{gameId}/startVerification)
+	StartVerification(ctx context.Context, request StartVerificationRequestObject) (StartVerificationResponseObject, error)
 	// Start voting for the current round
 	// (POST /api/game/{gameId}/startVoting)
 	StartVoting(ctx context.Context, request StartVotingRequestObject) (StartVotingResponseObject, error)
@@ -1723,6 +1905,34 @@ func (sh *strictHandler) SendAnswer(ctx *gin.Context, gameId string) {
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(SendAnswerResponseObject); ok {
 		if err := validResponse.VisitSendAnswerResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAnswer operation middleware
+func (sh *strictHandler) DeleteAnswer(ctx *gin.Context, gameId string, answerUUID UUID) {
+	var request DeleteAnswerRequestObject
+
+	request.GameId = gameId
+	request.AnswerUUID = answerUUID
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAnswer(ctx, request.(DeleteAnswerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAnswer")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(DeleteAnswerResponseObject); ok {
+		if err := validResponse.VisitDeleteAnswerResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
@@ -1913,6 +2123,33 @@ func (sh *strictHandler) StartGame(ctx *gin.Context, gameId string) {
 		ctx.Status(http.StatusInternalServerError)
 	} else if validResponse, ok := response.(StartGameResponseObject); ok {
 		if err := validResponse.VisitStartGameResponse(ctx.Writer); err != nil {
+			ctx.Error(err)
+		}
+	} else if response != nil {
+		ctx.Error(fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartVerification operation middleware
+func (sh *strictHandler) StartVerification(ctx *gin.Context, gameId string) {
+	var request StartVerificationRequestObject
+
+	request.GameId = gameId
+
+	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
+		return sh.ssi.StartVerification(ctx, request.(StartVerificationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartVerification")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		ctx.Error(err)
+		ctx.Status(http.StatusInternalServerError)
+	} else if validResponse, ok := response.(StartVerificationResponseObject); ok {
+		if err := validResponse.VisitStartVerificationResponse(ctx.Writer); err != nil {
 			ctx.Error(err)
 		}
 	} else if response != nil {
@@ -2176,51 +2413,55 @@ func (sh *strictHandler) GetSystemStatus(ctx *gin.Context) {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
+	"AAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

@@ -76,11 +76,36 @@ func (s *Service) StartVoting(gameID string, token uuid.UUID) error {
 	if game.gameOwner != user.userID && state.roundMasterID != user.userID {
 		return ErrForbidden
 	}
-	if state.status != RoundStatusAnswering {
+	if state.status != RoundStatusVerifying {
 		return ErrInvalidRound
 	}
 
 	state.status = RoundStatusVoting
+	ensureScrambled(s, state)
+
+	return nil
+}
+
+func (s *Service) StartVerification(gameID string, token uuid.UUID) error {
+	s.Lock.Lock()
+	defer s.Lock.Unlock()
+
+	game, user, err := s.gameAndUser(gameID, token)
+	if err != nil {
+		return err
+	}
+	state, err := game.activeRoundState()
+	if err != nil {
+		return err
+	}
+	if game.gameOwner != user.userID && state.roundMasterID != user.userID {
+		return ErrForbidden
+	}
+	if state.status != RoundStatusAnswering {
+		return ErrInvalidRound
+	}
+
+	state.status = RoundStatusVerifying
 	ensureScrambled(s, state)
 
 	return nil

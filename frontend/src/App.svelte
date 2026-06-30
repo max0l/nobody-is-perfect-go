@@ -28,14 +28,14 @@
   let answerField;
 
   $: roundStatus = status?.roundStatus || "lobby";
-  $: stage = forcedStage || (!userUUID ? "profile" : !gameId ? "choose" : !status ? "loading" : !status.round ? "lobby" : roundStatus === "voting" ? "voting" : roundStatus === "revealed" ? "reveal" : "answering");
+  $: stage = forcedStage || (!userUUID ? "profile" : !gameId ? "choose" : !status ? "loading" : !status.round ? "lobby" : roundStatus === "verifying" ? "verifying" : roundStatus === "voting" ? "voting" : roundStatus === "revealed" ? "reveal" : "answering");
   $: isGameOwner = status?.gameMasterUUID === userUUID;
   $: canLead = status?.gameMasterUUID === userUUID || status?.roundMasterUUID === userUUID;
   $: currentAnswer = status?.currentAnswer || "";
   $: currentAnswerUUID = status?.currentAnswerUUID || "";
   $: stats = [
     { label: "Players", value: status?.playerCount || 0 },
-    ...(roundStatus === "answering" && status?.roundMasterUUID === userUUID ? [{ label: "Answers", value: status?.receivedAnswers || 0 }] : []),
+    ...(["answering", "verifying"].includes(roundStatus) && status?.roundMasterUUID === userUUID ? [{ label: "Answers", value: status?.receivedAnswers || 0 }] : []),
     ...(["voting", "revealed"].includes(roundStatus) && status?.roundMasterUUID === userUUID ? [{ label: "Votes", value: status?.receivedVotes || 0 }] : []),
   ];
 
@@ -154,9 +154,20 @@
     });
   }
 
+  async function deleteAnswer(answerUUID) {
+    if (!window.confirm("Delete this answer before voting starts?")) return;
+    await withBusy(async () => {
+      await api(`/api/game/${encodeURIComponent(gameId)}/answers/${encodeURIComponent(answerUUID)}`, { method: "DELETE" });
+      answers = answers.filter((answer) => answer.answerUUID !== answerUUID);
+      notice("Answer deleted");
+      await refreshGame();
+    });
+  }
+
   async function runAction(action) {
     const actions = {
       start: { path: "/start", message: "Game started" },
+      startVerification: { path: "/startVerification", message: "Verification started" },
       startVoting: { path: "/startVoting", message: "Voting started" },
       reveal: { message: "Votes revealed", reveal: true },
       next: { path: "/next", message: "Next round started", clearRound: true },
@@ -226,7 +237,7 @@
   }
 
   async function loadPhaseData() {
-    if (["voting", "revealed"].includes(currentRoundStatus())) {
+    if (["verifying", "voting", "revealed"].includes(currentRoundStatus())) {
       try {
         const data = await api(`/api/game/${encodeURIComponent(gameId)}/answers`, { quiet: true });
         answers = data.answers || [];
@@ -538,8 +549,8 @@
       {@render GameHeader(`Round ${status?.round || ""}`, "Answering")}
       {@render Stats()}
       {#if status?.roundMasterUUID === userUUID}
-        <p class="waiting">You are the round master. Wait for the players, then start voting.</p>
-        {#if canLead}<button class="primary" disabled={busy} on:click={() => runAction("startVoting")}>Start voting</button>{/if}
+        <p class="waiting">You are the round master. Wait for the players, then review the answers.</p>
+        {#if canLead}<button class="primary" disabled={busy} on:click={() => runAction("startVerification")}>Review answers</button>{/if}
       {:else}
         {#if currentAnswer}
           <section class="submitted-answer" aria-label="Your submitted answer">
@@ -557,6 +568,28 @@
         </form>
       {/if}
       {@render ActionMenu(AnsweringMenu)}
+    {:else if stage === "verifying"}
+      {@render GameHeader(`Round ${status?.round || ""}`, "Review answers")}
+      {@render Stats()}
+      {#if status?.roundMasterUUID === userUUID}
+        <p class="waiting">Delete answers that should not be included. Deleted answers will not appear during voting.</p>
+        {#if answers.length === 0}
+          <p class="waiting">No answers are available yet.</p>
+        {:else}
+          <div class="answers">
+            {#each answers as answer (answer.answerUUID)}
+              <article class="answer-card">
+                <div><strong>{answer.label || "?"} by {answer.username || "unknown"}</strong><p>{answer.answer || ""}</p></div>
+                <button class="danger" disabled={busy} on:click={() => deleteAnswer(answer.answerUUID)}>Delete</button>
+              </article>
+            {/each}
+          </div>
+        {/if}
+        <button class="primary" disabled={busy} on:click={() => runAction("startVoting")}>Start voting</button>
+      {:else}
+        <p class="waiting">The round master is reviewing the answers.</p>
+      {/if}
+      {@render ActionMenu(VerifyingMenu)}
     {:else if stage === "voting"}
       {@render GameHeader(`Round ${status?.round || ""}`, "Voting")}
       {@render Stats()}
@@ -668,7 +701,13 @@
 
 {#snippet AnsweringMenu()}
   {@render PlayerList()}
-  {#if canLead && status?.roundMasterUUID !== userUUID}<button disabled={busy} on:click={() => runAction("startVoting")}>Start voting</button>{/if}
+  {#if canLead && status?.roundMasterUUID !== userUUID}<button disabled={busy} on:click={() => runAction("startVerification")}>Emergency review answers</button>{/if}
+  {@render GameActions(isGameOwner)}
+{/snippet}
+
+{#snippet VerifyingMenu()}
+  {@render PlayerList()}
+  {#if canLead && status?.roundMasterUUID !== userUUID}<button disabled={busy} on:click={() => runAction("startVoting")}>Emergency start voting</button>{/if}
   {@render GameActions(isGameOwner)}
 {/snippet}
 

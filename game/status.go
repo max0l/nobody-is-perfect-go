@@ -29,6 +29,7 @@ type RoundStatus int
 
 const (
 	RoundStatusAnswering RoundStatus = iota
+	RoundStatusVerifying
 	RoundStatusVoting
 	RoundStatusRevealed
 )
@@ -37,6 +38,8 @@ func (s RoundStatus) String() string {
 	switch s {
 	case RoundStatusAnswering:
 		return "answering"
+	case RoundStatusVerifying:
+		return "verifying"
 	case RoundStatusVoting:
 		return "voting"
 	case RoundStatusRevealed:
