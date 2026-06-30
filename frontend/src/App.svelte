@@ -33,7 +33,7 @@
   $: currentAnswer = status?.currentAnswer || "";
   $: stats = [
     { label: "Players", value: status?.playerCount || 0 },
-    ...(roundStatus === "answering" ? [{ label: "Answers", value: status?.receivedAnswers || 0 }] : []),
+    ...(roundStatus === "answering" && status?.roundMasterUUID === userUUID ? [{ label: "Answers", value: status?.receivedAnswers || 0 }] : []),
     ...(["voting", "revealed"].includes(roundStatus) ? [{ label: "Votes", value: status?.receivedVotes || 0 }] : []),
   ];
 
