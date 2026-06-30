@@ -75,7 +75,7 @@ go build -o nobody-is-perfect-go .
 Configure the server with environment variables:
 
 ```sh
-NIP_HOST=127.0.0.1 NIP_PORT=3000 go run .
+NIP_PORT=3000 go run .
 ```
 
 Or copy `.env.example` and load it with your shell or process manager:
@@ -91,12 +91,12 @@ go run .
 
 | Environment variable | Default | Description |
 | --- | --- | --- |
-| `NIP_HOST` | `0.0.0.0` | Host/interface the HTTP server binds to. |
 | `NIP_PORT` | `8080` | Port the HTTP server listens on. |
-| `NIP_API_BASE_URL` | Derived from host/port, normally `http://localhost:8080` | Public API base URL written into the OpenAPI server config for request validation. Set this when Docker/proxy host or port differs from the internal bind address. |
 | `NIP_MAX_CONCURRENT_GAMES` | `100` | Maximum number of active games. Creating another game returns `403 Forbidden`. |
 | `NIP_WORDLIST_PATH` | `words.txt` | Path to the word list used for generated game IDs. |
 | `NIP_LOG_FORMAT` | `json` | Log output format. Supported values: `json`, `text`, `text-color`. |
+
+The server binds to all interfaces. Use `NIP_PORT` to change the listen port, and control host/interface exposure through your container runtime or reverse proxy.
 
 ## Docker
 
@@ -117,7 +117,6 @@ Override configuration with environment variables:
 ```sh
 docker run --rm -p 3000:3000 \
   -e NIP_PORT=3000 \
-  -e NIP_API_BASE_URL=http://localhost:3000 \
   -e NIP_MAX_CONCURRENT_GAMES=100 \
   nobody-is-perfect-go
 ```
@@ -140,7 +139,7 @@ docker compose up --build
 Compose uses the same environment variables and defaults as the server. Override them inline or through a local `.env` file:
 
 ```sh
-NIP_HOST=127.0.0.1 NIP_PORT=3000 NIP_API_BASE_URL=http://127.0.0.1:3000 docker compose up --build
+NIP_PORT=3000 docker compose up --build
 ```
 
 ## Git Hooks

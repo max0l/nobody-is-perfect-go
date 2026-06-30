@@ -53,7 +53,7 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("load swagger spec")
 	}
-	swagger.Servers = openapi3.Servers{{URL: cfg.APIBaseURL}}
+	swagger.Servers = openapi3.Servers{{URL: "/"}}
 
 	validator := ginmiddleware.OapiRequestValidatorWithOptions(swagger, &ginmiddleware.Options{
 		ErrorHandler:          validationErrorHandler,
@@ -74,7 +74,7 @@ func main() {
 		Addr:    cfg.Addr(),
 	}
 
-	log.Info().Str("addr", cfg.Addr()).Str("api_base_url", cfg.APIBaseURL).Int("max_concurrent_games", cfg.MaxConcurrentGames).Str("wordlist_path", cfg.WordlistPath).Msg("starting http server")
+	log.Info().Str("listen_addr", cfg.Addr()).Int("max_concurrent_games", cfg.MaxConcurrentGames).Str("wordlist_path", cfg.WordlistPath).Msg("starting http server")
 	if err := runHTTPServer(s); err != nil {
 		log.Fatal().Err(err).Msg("http server stopped")
 	}
