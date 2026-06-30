@@ -549,24 +549,23 @@
       {@render GameHeader(`Round ${status?.round || ""}`, "Answering")}
       {@render Stats()}
       {#if status?.roundMasterUUID === userUUID}
-        <p class="waiting">You are the round master. Wait for the players, then review the answers.</p>
+        <p class="waiting">You are the round master. You can submit your own answer, then review all answers.</p>
         {#if canLead}<button class="primary" disabled={busy} on:click={() => runAction("startVerification")}>Review answers</button>{/if}
-      {:else}
-        {#if currentAnswer}
-          <section class="submitted-answer" aria-label="Your submitted answer">
-            <div>
-              <span>Your submitted answer</span>
-              <p>{currentAnswer}</p>
-            </div>
-            <button type="button" disabled={busy} on:click={editCurrentAnswer}>Edit</button>
-          </section>
-        {/if}
-        <form class="stack" on:submit|preventDefault={submitAnswer}>
-          <label>Your answer<textarea bind:this={answerField} bind:value={answerDraft} rows="5" required placeholder="Write your best fake answer"></textarea></label>
-          {#if currentAnswer}<p class="overwrite-note">Sending a new answer will overwrite your previous answer.</p>{/if}
-          <button class="primary" type="submit" disabled={busy}>{currentAnswer ? "Overwrite answer" : "Send answer"}</button>
-        </form>
       {/if}
+      {#if currentAnswer}
+        <section class="submitted-answer" aria-label="Your submitted answer">
+          <div>
+            <span>Your submitted answer</span>
+            <p>{currentAnswer}</p>
+          </div>
+          <button type="button" disabled={busy} on:click={editCurrentAnswer}>Edit</button>
+        </section>
+      {/if}
+      <form class="stack" on:submit|preventDefault={submitAnswer}>
+        <label>Your answer<textarea bind:this={answerField} bind:value={answerDraft} rows="5" required placeholder="Write your best fake answer"></textarea></label>
+        {#if currentAnswer}<p class="overwrite-note">Sending a new answer will overwrite your previous answer.</p>{/if}
+        <button class="primary" type="submit" disabled={busy}>{currentAnswer ? "Overwrite answer" : "Send answer"}</button>
+      </form>
       {@render ActionMenu(AnsweringMenu)}
     {:else if stage === "verifying"}
       {@render GameHeader(`Round ${status?.round || ""}`, "Review answers")}
