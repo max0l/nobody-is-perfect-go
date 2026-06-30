@@ -454,6 +454,7 @@
 
   function playerFlags(player) {
     const flags = [];
+    if (player.userUUID === userUUID) flags.push("you");
     if (player.userUUID === status?.gameMasterUUID) flags.push("host");
     if (player.userUUID === status?.roundMasterUUID) flags.push("round master");
     return flags.join(" · ") || "player";
@@ -793,7 +794,7 @@
   {:else}
     <ol class="players">
       {#each status.users as player (player.userUUID)}
-        <li class="player"><span><strong>{player.username || "Player"}</strong><small class:online={player.online} class:offline={!player.online}>{player.online ? "online" : "offline"}</small></span><span class="badge">{playerFlags(player)}</span></li>
+        <li class:self-player={player.userUUID === userUUID} class="player"><span><strong>{player.username || "Player"}</strong><small class:online={player.online} class:offline={!player.online}>{player.online ? "online" : "offline"}</small></span><span class="badge">{playerFlags(player)}</span></li>
       {/each}
     </ol>
   {/if}

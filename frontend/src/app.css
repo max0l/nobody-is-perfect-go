@@ -293,6 +293,11 @@ p { margin: 0; }
 .player { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
 .player small { display: block; }
 
+.self-player {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+}
+
 .badge {
   border-radius: 999px;
   background: var(--soft);
