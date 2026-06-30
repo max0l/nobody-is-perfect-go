@@ -23,6 +23,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.LogFormat != DefaultLogFormat {
 		t.Fatalf("expected default log format %q, got %q", DefaultLogFormat, cfg.LogFormat)
 	}
+	if cfg.LogLevel != DefaultLogLevel {
+		t.Fatalf("expected default log level %q, got %q", DefaultLogLevel, cfg.LogLevel)
+	}
 }
 
 func TestAddrListensOnConfiguredPort(t *testing.T) {
@@ -82,5 +85,37 @@ func TestLoadRejectsInvalidLogFormat(t *testing.T) {
 
 	if _, err := Load(); err == nil {
 		t.Fatal("expected invalid log format error")
+	}
+}
+
+func TestLoadUsesExplicitLogLevel(t *testing.T) {
+	t.Setenv(EnvLogLevel, "DEBUG")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	if cfg.LogLevel != LogLevelDebug {
+		t.Fatalf("expected log level %q, got %q", LogLevelDebug, cfg.LogLevel)
+	}
+}
+
+func TestLoadAcceptsDisabledLogLevel(t *testing.T) {
+	t.Setenv(EnvLogLevel, LogLevelDisabled)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load returned error: %v", err)
+	}
+	if cfg.LogLevel != LogLevelDisabled {
+		t.Fatalf("expected log level %q, got %q", LogLevelDisabled, cfg.LogLevel)
+	}
+}
+
+func TestLoadRejectsInvalidLogLevel(t *testing.T) {
+	t.Setenv(EnvLogLevel, "verbose")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("expected invalid log level error")
 	}
 }

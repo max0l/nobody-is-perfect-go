@@ -13,15 +13,24 @@ const (
 	DefaultMaxConcurrentGames = 100
 	DefaultWordlistPath       = "words.txt"
 	DefaultLogFormat          = LogFormatJSON
+	DefaultLogLevel           = LogLevelInfo
 
 	EnvPort               = "NIP_PORT"
 	EnvMaxConcurrentGames = "NIP_MAX_CONCURRENT_GAMES"
 	EnvWordlistPath       = "NIP_WORDLIST_PATH"
 	EnvLogFormat          = "NIP_LOG_FORMAT"
+	EnvLogLevel           = "NIP_LOG_LEVEL"
 
 	LogFormatJSON      = "json"
 	LogFormatText      = "text"
 	LogFormatTextColor = "text-color"
+
+	LogLevelTrace    = "trace"
+	LogLevelDebug    = "debug"
+	LogLevelInfo     = "info"
+	LogLevelWarn     = "warn"
+	LogLevelError    = "error"
+	LogLevelDisabled = "disabled"
 )
 
 type Config struct {
@@ -29,6 +38,7 @@ type Config struct {
 	MaxConcurrentGames int
 	WordlistPath       string
 	LogFormat          string
+	LogLevel           string
 }
 
 func Load() (Config, error) {
@@ -48,12 +58,17 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	logLevel, err := getLogLevelEnv()
+	if err != nil {
+		return Config{}, err
+	}
 
 	return Config{
 		Port:               port,
 		MaxConcurrentGames: maxConcurrentGames,
 		WordlistPath:       wordlistPath,
 		LogFormat:          logFormat,
+		LogLevel:           logLevel,
 	}, nil
 }
 
@@ -94,5 +109,15 @@ func getLogFormatEnv() (string, error) {
 		return value, nil
 	default:
 		return "", fmt.Errorf("%s must be one of %s, %s, %s", EnvLogFormat, LogFormatJSON, LogFormatText, LogFormatTextColor)
+	}
+}
+
+func getLogLevelEnv() (string, error) {
+	value := strings.ToLower(getEnv(EnvLogLevel, DefaultLogLevel))
+	switch value {
+	case LogLevelTrace, LogLevelDebug, LogLevelInfo, LogLevelWarn, LogLevelError, LogLevelDisabled:
+		return value, nil
+	default:
+		return "", fmt.Errorf("%s must be one of %s, %s, %s, %s, %s, %s", EnvLogLevel, LogLevelTrace, LogLevelDebug, LogLevelInfo, LogLevelWarn, LogLevelError, LogLevelDisabled)
 	}
 }

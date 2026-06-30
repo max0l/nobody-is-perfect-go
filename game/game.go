@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 type Answer struct {
@@ -41,9 +42,11 @@ func (s *Service) CreateGame(gameCreator uuid.UUID) (string, error) {
 
 	user, exists := s.users[gameCreator]
 	if !exists {
+		log.Warn().Msg("create game rejected: user not found")
 		return "", ErrUserNotFound
 	}
 	if len(s.games) >= s.maxConcurrentGames {
+		log.Warn().Int("active_games", len(s.games)).Int("max_concurrent_games", s.maxConcurrentGames).Msg("create game rejected: max games reached")
 		return "", ErrMaxGamesReached
 	}
 
@@ -66,6 +69,11 @@ func (s *Service) CreateGame(gameCreator uuid.UUID) (string, error) {
 	newGame.lastSeenByUser[user.userID] = now
 	newGame.appendPlayer(user.userID)
 	s.leaveOtherGamesLocked(user.userID, gameID)
+	log.Info().
+		Str("game_id", gameID).
+		Str("owner_user_id", user.userID.String()).
+		Int("active_games", len(s.games)).
+		Msg("game created")
 
 	return gameID, nil
 }
@@ -92,6 +100,11 @@ func (g *Games) currentRoundState() *round {
 func (g *Games) startNextRound() {
 	g.currentRound++
 	g.rounds[g.currentRound] = newRound(g.usersByPlace[(g.currentRound-1)%len(g.usersByPlace)])
+	log.Info().
+		Str("game_id", g.gameID).
+		Int("round", g.currentRound).
+		Str("round_master_user_id", g.rounds[g.currentRound].roundMasterID.String()).
+		Msg("round started")
 }
 
 func newRound(roundMasterID uuid.UUID) *round {

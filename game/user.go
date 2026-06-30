@@ -4,6 +4,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 type User struct {
@@ -45,6 +46,7 @@ func (s *Service) CreateUser(username *string) (*User, error) {
 
 	s.users[token] = user
 	s.usersByID[userID] = user
+	log.Info().Str("user_id", userID.String()).Str("username", user.username).Msg("user created")
 
 	return user, nil
 }

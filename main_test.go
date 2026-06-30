@@ -10,9 +10,11 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/gin-gonic/gin"
 	"github.com/max0l/nobody-is-perfect-go/api"
+	"github.com/max0l/nobody-is-perfect-go/config"
 	"github.com/max0l/nobody-is-perfect-go/game"
 	"github.com/max0l/nobody-is-perfect-go/middlewares"
 	ginmiddleware "github.com/oapi-codegen/gin-middleware"
+	"github.com/rs/zerolog"
 )
 
 func TestOpenAPIValidatorUsesRelativeServerURL(t *testing.T) {
@@ -46,5 +48,23 @@ func TestOpenAPIValidatorUsesRelativeServerURL(t *testing.T) {
 
 	if response.Code != http.StatusCreated {
 		t.Fatalf("expected status %d, got %d with body %q", http.StatusCreated, response.Code, response.Body.String())
+	}
+}
+
+func TestZerologLevelMapsConfiguredLevel(t *testing.T) {
+	tests := map[string]zerolog.Level{
+		config.LogLevelTrace:    zerolog.TraceLevel,
+		config.LogLevelDebug:    zerolog.DebugLevel,
+		config.LogLevelInfo:     zerolog.InfoLevel,
+		config.LogLevelWarn:     zerolog.WarnLevel,
+		config.LogLevelError:    zerolog.ErrorLevel,
+		config.LogLevelDisabled: zerolog.Disabled,
+		"":                      zerolog.InfoLevel,
+	}
+
+	for level, expected := range tests {
+		if actual := zerologLevel(level); actual != expected {
+			t.Fatalf("expected %q to map to %s, got %s", level, expected, actual)
+		}
 	}
 }

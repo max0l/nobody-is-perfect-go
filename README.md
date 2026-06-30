@@ -95,6 +95,7 @@ go run .
 | `NIP_MAX_CONCURRENT_GAMES` | `100` | Maximum number of active games. Creating another game returns `403 Forbidden`. |
 | `NIP_WORDLIST_PATH` | `words.txt` | Path to the word list used for generated game IDs. |
 | `NIP_LOG_FORMAT` | `json` | Log output format. Supported values: `json`, `text`, `text-color`. |
+| `NIP_LOG_LEVEL` | `info` | Minimum log level. Supported values: `trace`, `debug`, `info`, `warn`, `error`, `disabled`. Use `debug` for more granular backend diagnostics. |
 
 The server binds to all interfaces. Use `NIP_PORT` to change the listen port, and control host/interface exposure through your container runtime or reverse proxy.
 

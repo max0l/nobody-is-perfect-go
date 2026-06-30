@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 type PlayOrderEntry struct {
@@ -24,16 +25,19 @@ func (s *Service) JoinGame(gameID string, token uuid.UUID) error {
 
 	game, exists := s.games[gameID]
 	if !exists {
+		log.Warn().Str("game_id", gameID).Msg("join game rejected: game not found")
 		return ErrGameNotFound
 	}
 
 	user, exists := s.users[token]
 	if !exists {
+		log.Warn().Str("game_id", gameID).Msg("join game rejected: user not found")
 		return ErrUserNotFound
 	}
 
 	if _, alreadyJoined := game.players[user.userID]; alreadyJoined {
 		s.leaveOtherGamesLocked(user.userID, gameID)
+		log.Debug().Str("game_id", gameID).Str("user_id", user.userID.String()).Msg("join game ignored: user already joined")
 		return nil
 	}
 
@@ -42,6 +46,7 @@ func (s *Service) JoinGame(gameID string, token uuid.UUID) error {
 	game.lastSeenByUser[user.userID] = s.now()
 	game.allOfflineSince = time.Time{}
 	game.appendPlayer(user.userID)
+	log.Info().Str("game_id", gameID).Str("user_id", user.userID.String()).Int("players", len(game.players)).Msg("player joined game")
 
 	return nil
 }
@@ -70,24 +75,34 @@ func (s *Service) SetPlayOrder(gameID string, token uuid.UUID, entries []SetPlay
 		return err
 	}
 	if game.gameOwner != user.userID {
+		log.Warn().Str("game_id", gameID).Str("user_id", user.userID.String()).Msg("set play order rejected: user is not owner")
 		return ErrForbidden
 	}
 
-	return game.setPlayOrder(entries)
+	if err := game.setPlayOrder(entries); err != nil {
+		log.Warn().Str("game_id", gameID).Str("user_id", user.userID.String()).Err(err).Msg("set play order rejected")
+		return err
+	}
+
+	log.Info().Str("game_id", gameID).Str("user_id", user.userID.String()).Int("players", len(entries)).Msg("play order set")
+	return nil
 }
 
 func (s *Service) gameAndUser(gameID string, token uuid.UUID) (*Games, *User, error) {
 	if s.discardExpiredGameLocked(gameID, s.now()) {
+		log.Warn().Str("game_id", gameID).Msg("game lookup failed: game expired")
 		return nil, nil, ErrGameNotFound
 	}
 
 	game, exists := s.games[gameID]
 	if !exists {
+		log.Warn().Str("game_id", gameID).Msg("game lookup failed: game not found")
 		return nil, nil, ErrGameNotFound
 	}
 
 	user, exists := s.users[token]
 	if !exists {
+		log.Warn().Str("game_id", gameID).Msg("game lookup failed: user not found")
 		return nil, nil, ErrUserNotFound
 	}
 

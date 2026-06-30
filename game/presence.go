@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 func (s *Service) KickPlayer(gameID string, token uuid.UUID, targetUserID uuid.UUID) error {
@@ -15,21 +16,26 @@ func (s *Service) KickPlayer(gameID string, token uuid.UUID, targetUserID uuid.U
 		return err
 	}
 	if game.gameOwner != user.userID {
+		log.Warn().Str("game_id", gameID).Str("user_id", user.userID.String()).Str("target_user_id", targetUserID.String()).Msg("kick player rejected: user is not owner")
 		return ErrForbidden
 	}
 	if targetUserID == game.gameOwner {
+		log.Warn().Str("game_id", gameID).Str("user_id", user.userID.String()).Str("target_user_id", targetUserID.String()).Msg("kick player rejected: cannot kick owner")
 		return ErrCannotKickOwner
 	}
 	if _, isPlayer := game.players[targetUserID]; !isPlayer {
+		log.Warn().Str("game_id", gameID).Str("user_id", user.userID.String()).Str("target_user_id", targetUserID.String()).Msg("kick player rejected: target is not player")
 		return ErrPlayerNotFound
 	}
 
 	game.removePlayer(targetUserID)
 	if len(game.players) == 0 {
 		delete(s.games, gameID)
+		log.Info().Str("game_id", gameID).Str("user_id", user.userID.String()).Str("target_user_id", targetUserID.String()).Msg("player kicked and empty game removed")
 		return nil
 	}
 	game.ensureRoundMaster()
+	log.Info().Str("game_id", gameID).Str("user_id", user.userID.String()).Str("target_user_id", targetUserID.String()).Int("players", len(game.players)).Msg("player kicked")
 
 	return nil
 }
@@ -43,6 +49,7 @@ func (s *Service) LeaveGame(gameID string, token uuid.UUID) error {
 		return err
 	}
 	if _, isPlayer := game.players[user.userID]; !isPlayer {
+		log.Warn().Str("game_id", gameID).Str("user_id", user.userID.String()).Msg("leave game rejected: user is not player")
 		return ErrForbidden
 	}
 
@@ -50,12 +57,15 @@ func (s *Service) LeaveGame(gameID string, token uuid.UUID) error {
 	game.removePlayer(user.userID)
 	if len(game.players) == 0 {
 		delete(s.games, gameID)
+		log.Info().Str("game_id", gameID).Str("user_id", user.userID.String()).Msg("player left and empty game removed")
 		return nil
 	}
 	if wasOwner {
 		game.gameOwner = game.usersByPlace[0]
+		log.Info().Str("game_id", gameID).Str("old_owner_user_id", user.userID.String()).Str("new_owner_user_id", game.gameOwner.String()).Msg("game owner transferred")
 	}
 	game.ensureRoundMaster()
+	log.Info().Str("game_id", gameID).Str("user_id", user.userID.String()).Int("players", len(game.players)).Msg("player left game")
 
 	return nil
 }
@@ -67,6 +77,7 @@ func (s *Service) discardExpiredGameLocked(gameID string, now time.Time) bool {
 	}
 	if len(game.players) == 0 {
 		delete(s.games, gameID)
+		log.Info().Str("game_id", gameID).Msg("empty game discarded")
 		return true
 	}
 
@@ -80,6 +91,7 @@ func (s *Service) discardExpiredGameLocked(gameID string, now time.Time) bool {
 	}
 	if now.Sub(game.allOfflineSince) >= GameDiscardAfter {
 		delete(s.games, gameID)
+		log.Info().Str("game_id", gameID).Dur("offline_for", now.Sub(game.allOfflineSince)).Msg("offline game discarded")
 		return true
 	}
 
@@ -164,8 +176,10 @@ func (s *Service) leaveOtherGamesLocked(userID uuid.UUID, exceptGameID string) {
 		}
 		if wasOwner {
 			game.gameOwner = game.usersByPlace[0]
+			log.Info().Str("game_id", gameID).Str("old_owner_user_id", userID.String()).Str("new_owner_user_id", game.gameOwner.String()).Msg("game owner transferred after joining another game")
 		}
 		game.ensureRoundMaster()
+		log.Info().Str("game_id", gameID).Str("user_id", userID.String()).Int("players", len(game.players)).Msg("player removed after joining another game")
 	}
 }
 
@@ -186,6 +200,7 @@ func (g *Games) ensureRoundMaster() {
 	}
 
 	state.roundMasterID = g.usersByPlace[(g.currentRound-1)%len(g.usersByPlace)]
+	log.Info().Str("game_id", g.gameID).Int("round", g.currentRound).Str("round_master_user_id", state.roundMasterID.String()).Msg("round master changed")
 }
 
 func removeUUID(values []uuid.UUID, value uuid.UUID) []uuid.UUID {

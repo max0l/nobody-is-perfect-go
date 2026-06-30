@@ -6,5 +6,7 @@ services:
       NIP_PORT: ${NIP_PORT:-8080}
       NIP_MAX_CONCURRENT_GAMES: ${NIP_MAX_CONCURRENT_GAMES:-100}
       NIP_WORDLIST_PATH: ${NIP_WORDLIST_PATH:-/app/words.txt}
+      NIP_LOG_FORMAT: ${NIP_LOG_FORMAT:-json}
+      NIP_LOG_LEVEL: ${NIP_LOG_LEVEL:-info}
     ports:
       - "${NIP_PORT:-8080}:${NIP_PORT:-8080}"

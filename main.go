@@ -35,7 +35,7 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("load config")
 	}
-	configureLogging(cfg.LogFormat)
+	configureLogging(cfg.LogFormat, cfg.LogLevel)
 	server := api.NewServerWithGameService(game.NewServiceWithOptions(game.ServiceOptions{
 		WordlistPath:       cfg.WordlistPath,
 		MaxConcurrentGames: cfg.MaxConcurrentGames,
@@ -74,7 +74,13 @@ func main() {
 		Addr:    cfg.Addr(),
 	}
 
-	log.Info().Str("listen_addr", cfg.Addr()).Int("max_concurrent_games", cfg.MaxConcurrentGames).Str("wordlist_path", cfg.WordlistPath).Msg("starting http server")
+	log.Info().
+		Str("listen_addr", cfg.Addr()).
+		Int("max_concurrent_games", cfg.MaxConcurrentGames).
+		Str("wordlist_path", cfg.WordlistPath).
+		Str("log_format", cfg.LogFormat).
+		Str("log_level", cfg.LogLevel).
+		Msg("starting http server")
 	if err := runHTTPServer(s); err != nil {
 		log.Fatal().Err(err).Msg("http server stopped")
 	}
@@ -110,7 +116,7 @@ func runHTTPServer(s *http.Server) error {
 	return <-serverErr
 }
 
-func configureLogging(format string) {
+func configureLogging(format, level string) {
 	switch format {
 	case config.LogFormatText:
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, NoColor: true})
@@ -118,6 +124,25 @@ func configureLogging(format string) {
 		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, NoColor: false})
 	default:
 		log.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
+	}
+
+	zerolog.SetGlobalLevel(zerologLevel(level))
+}
+
+func zerologLevel(level string) zerolog.Level {
+	switch level {
+	case config.LogLevelTrace:
+		return zerolog.TraceLevel
+	case config.LogLevelDebug:
+		return zerolog.DebugLevel
+	case config.LogLevelWarn:
+		return zerolog.WarnLevel
+	case config.LogLevelError:
+		return zerolog.ErrorLevel
+	case config.LogLevelDisabled:
+		return zerolog.Disabled
+	default:
+		return zerolog.InfoLevel
 	}
 }
 

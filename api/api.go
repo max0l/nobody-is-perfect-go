@@ -19,15 +19,11 @@ type StrictServer struct {
 }
 
 func (s *StrictServer) CreateGame(ctx context.Context, request CreateGameRequestObject) (CreateGameResponseObject, error) {
-
-	log.Info().Interface("request", request).Interface("context", ctx).Msg("create game request")
-
 	token, ok := sessionToken(ctx)
 	if !ok {
 		msg := UnauthorizedError
 		return CreateGame401JSONResponse{Error: &msg}, nil
 	}
-	log.Info().Str("token", token.String()).Msg("create game for user")
 
 	gameId, err := s.gameService.CreateGame(token)
 
@@ -689,6 +685,7 @@ func (s *StrictServer) CreateUser(ctx context.Context, request CreateUserRequest
 
 func (s *StrictServer) Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error) {
 	clearSessionCookie(ctx)
+	log.Debug().Msg("user logged out")
 	msg := "logged out successfully"
 	return Logout200JSONResponse{Message: &msg}, nil
 }
@@ -721,7 +718,7 @@ func sessionToken(ctx context.Context) (uuid.UUID, bool) {
 
 	parsed, err := uuid.Parse(token)
 	if err != nil {
-		log.Error().Err(err).Msg("parse session token")
+		log.Warn().Err(err).Msg("invalid session token")
 		return uuid.Nil, false
 	}
 
