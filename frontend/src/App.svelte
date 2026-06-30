@@ -543,7 +543,7 @@
       </form>
     {:else if stage === "choose"}
       <p class="eyebrow">Step 2</p>
-      <h1>Choose game</h1>
+      <h1>Create or join a game</h1>
       <p class="lead">Playing as <strong>{username}</strong>. Create a new table or join an invite.</p>
       <div class="button-row">
         <button id="create-game" class="primary" disabled={busy} on:click={createGame}>Create game</button>
