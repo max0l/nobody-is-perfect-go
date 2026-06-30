@@ -221,6 +221,7 @@ p { margin: 0; }
 
 .action-menu {
   display: grid;
+  justify-items: stretch;
   gap: 0.7rem;
   border-top: 1px solid var(--line);
   padding-top: 0.85rem;
@@ -324,8 +325,9 @@ p { margin: 0; }
   .button-row { display: flex; flex-wrap: wrap; }
   .system-status { justify-items: end; }
   .system-status-panel { width: min(100%, 24rem); }
-  .action-menu { justify-items: end; position: relative; }
-  .menu-panel { width: min(100%, 24rem); justify-self: stretch; }
+  .action-menu { position: relative; }
+  .action-menu .menu-toggle { width: 100%; justify-self: stretch; }
+  .menu-panel { width: 100%; justify-self: stretch; }
   .answer-card { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
   .answer-card.revealed { grid-template-columns: 1fr; }
   .toast { left: auto; width: min(26rem, calc(100% - 2rem)); right: 1rem; bottom: 1rem; }
