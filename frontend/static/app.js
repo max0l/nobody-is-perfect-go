@@ -508,11 +508,20 @@ function gameHeader(label, title) {
 
 function statRow() {
   const status = state.status || {};
+  const roundStatus = currentRoundStatus();
+  const stats = [{ label: "Players", value: status.playerCount || 0 }];
+
+  if (roundStatus === "answering") {
+    stats.push({ label: "Answers", value: status.receivedAnswers || 0 });
+  }
+
+  if (["voting", "revealed"].includes(roundStatus)) {
+    stats.push({ label: "Votes", value: status.receivedVotes || 0 });
+  }
+
   return `
     <div class="stats">
-      <div><span>Players</span><strong>${status.playerCount || 0}</strong></div>
-      <div><span>Answers</span><strong>${status.receivedAnswers || 0}</strong></div>
-      <div><span>Votes</span><strong>${status.receivedVotes || 0}</strong></div>
+      ${stats.map((stat) => `<div><span>${stat.label}</span><strong>${stat.value}</strong></div>`).join("")}
     </div>
   `;
 }

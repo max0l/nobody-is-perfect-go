@@ -179,23 +179,24 @@ p { margin: 0; }
 }
 
 .stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
 .stats div {
-  display: grid;
-  gap: 0.15rem;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
   min-width: 0;
   border: 1px solid var(--line);
-  border-radius: 1rem;
-  padding: 0.75rem;
-  background: var(--surface);
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
 }
 
 .stats strong {
-  font-size: 1.45rem;
+  font-size: 1rem;
   line-height: 1;
 }
 
