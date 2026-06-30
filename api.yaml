@@ -252,6 +252,10 @@ components:
           type: integer
           example: 2
           description: Get the number of votes received from eligible voters
+        currentAnswer:
+          type: string
+          example: "This is my answer to the question"
+          description: The requesting player's current answer for the active round, if they already submitted one
         playerCount:
           type: integer
           example: 4

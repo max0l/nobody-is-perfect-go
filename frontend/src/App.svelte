@@ -24,11 +24,13 @@
   let forcedStage = "";
   let errorDetail = "";
   let lastRoundKey = "";
+  let answerField;
 
   $: roundStatus = status?.roundStatus || "lobby";
   $: stage = forcedStage || (!userUUID ? "profile" : !gameId ? "choose" : !status ? "loading" : !status.round ? "lobby" : roundStatus === "voting" ? "voting" : roundStatus === "revealed" ? "reveal" : "answering");
   $: isGameOwner = status?.gameMasterUUID === userUUID;
   $: canLead = status?.gameMasterUUID === userUUID || status?.roundMasterUUID === userUUID;
+  $: currentAnswer = status?.currentAnswer || "";
   $: stats = [
     { label: "Players", value: status?.playerCount || 0 },
     ...(roundStatus === "answering" ? [{ label: "Answers", value: status?.receivedAnswers || 0 }] : []),
@@ -130,9 +132,15 @@
     await withBusy(async () => {
       await api(`/api/game/${encodeURIComponent(gameId)}/answers`, { method: "POST", body: { answer } });
       answerDraft = "";
-      notice("Answer sent");
+      notice(currentAnswer ? "Answer overwritten" : "Answer sent");
       await refreshGame();
     });
+  }
+
+  async function editCurrentAnswer() {
+    answerDraft = currentAnswer;
+    await Promise.resolve();
+    answerField?.focus();
   }
 
   async function voteForAnswer(answerUUID) {
@@ -520,9 +528,19 @@
         <p class="waiting">You are the round master. Wait for the players, then start voting.</p>
         {#if canLead}<button class="primary" disabled={busy} on:click={() => runAction("startVoting")}>Start voting</button>{/if}
       {:else}
+        {#if currentAnswer}
+          <section class="submitted-answer" aria-label="Your submitted answer">
+            <div>
+              <span>Your submitted answer</span>
+              <p>{currentAnswer}</p>
+            </div>
+            <button type="button" disabled={busy} on:click={editCurrentAnswer}>Edit</button>
+          </section>
+        {/if}
         <form class="stack" on:submit|preventDefault={submitAnswer}>
-          <label>Your answer<textarea bind:value={answerDraft} rows="5" required placeholder="Write your best fake answer"></textarea></label>
-          <button class="primary" type="submit" disabled={busy}>Send answer</button>
+          <label>Your answer<textarea bind:this={answerField} bind:value={answerDraft} rows="5" required placeholder="Write your best fake answer"></textarea></label>
+          {#if currentAnswer}<p class="overwrite-note">Sending a new answer will overwrite your previous answer.</p>{/if}
+          <button class="primary" type="submit" disabled={busy}>{currentAnswer ? "Overwrite answer" : "Send answer"}</button>
         </form>
       {/if}
       {@render ActionMenu(AnsweringMenu)}

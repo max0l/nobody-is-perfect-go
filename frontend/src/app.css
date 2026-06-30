@@ -219,6 +219,30 @@ p { margin: 0; }
 
 .join-panel[hidden] { display: none; }
 
+.submitted-answer {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  padding: 0.85rem;
+}
+
+.submitted-answer span, .overwrite-note {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.submitted-answer p {
+  margin-top: 0.2rem;
+  overflow-wrap: anywhere;
+}
+
+.overwrite-note {
+  margin-top: -0.35rem;
+}
+
 .action-menu {
   display: grid;
   justify-items: stretch;
@@ -323,6 +347,7 @@ p { margin: 0; }
   .invite-panel { grid-template-columns: auto minmax(0, 1fr); align-items: center; }
   .qr-code { width: 11rem; }
   .button-row { display: flex; flex-wrap: wrap; }
+  .submitted-answer { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
   .system-status { justify-items: end; }
   .system-status-panel { width: min(100%, 24rem); }
   .action-menu { position: relative; }

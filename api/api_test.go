@@ -500,6 +500,9 @@ func TestVotingRevealAndStatusEndpoints(t *testing.T) {
 	if status.RoundMasterUUID == nil || *status.RoundMasterUUID != *owner.UserUUID {
 		t.Fatalf("expected owner as round master, got %+v", status.RoundMasterUUID)
 	}
+	if status.CurrentAnswer == nil || *status.CurrentAnswer != playerAnswer {
+		t.Fatalf("expected current answer %q, got %+v", playerAnswer, status.CurrentAnswer)
+	}
 
 	if response, err := server.StartVoting(ownerCtx, StartVotingRequestObject{GameId: gameID}); err != nil {
 		t.Fatalf("StartVoting returned error: %v", err)

@@ -665,6 +665,44 @@ func TestStartGameInitializesRoundMasterAndStatus(t *testing.T) {
 	}
 }
 
+func TestGetStatusIncludesCurrentUsersAnswer(t *testing.T) {
+	service, gameID, owner, player := serviceWithTwoPlayers(t)
+	addServicePlayer(t, service, gameID, "third")
+	if err := service.StartGame(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("StartGame returned error: %v", err)
+	}
+
+	answer := "player answer"
+	if err := service.SendAnswer(gameID, *player.GetUserToken(), &answer); err != nil {
+		t.Fatalf("SendAnswer returned error: %v", err)
+	}
+	status, err := service.GetStatus(gameID, *player.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetStatus returned error: %v", err)
+	}
+	if status.CurrentAnswer != answer {
+		t.Fatalf("expected current answer %q, got %q", answer, status.CurrentAnswer)
+	}
+	if status.ReceivedAnswers != 1 {
+		t.Fatalf("expected one received answer, got %d", status.ReceivedAnswers)
+	}
+
+	updatedAnswer := "updated player answer"
+	if err := service.SendAnswer(gameID, *player.GetUserToken(), &updatedAnswer); err != nil {
+		t.Fatalf("SendAnswer update returned error: %v", err)
+	}
+	status, err = service.GetStatus(gameID, *player.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetStatus after update returned error: %v", err)
+	}
+	if status.CurrentAnswer != updatedAnswer {
+		t.Fatalf("expected updated current answer %q, got %q", updatedAnswer, status.CurrentAnswer)
+	}
+	if status.ReceivedAnswers != 1 {
+		t.Fatalf("expected overwritten answer not to increase count, got %d", status.ReceivedAnswers)
+	}
+}
+
 func TestVotingRevealAndNextRoundFlow(t *testing.T) {
 	service, gameID, owner, player := serviceWithTwoPlayers(t)
 	third := addServicePlayer(t, service, gameID, "third")
