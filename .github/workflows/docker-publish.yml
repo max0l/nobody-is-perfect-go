@@ -65,7 +65,8 @@ jobs:
           DOCKHAND_WEBHOOK_URL: ${{ secrets.DOCKHAND_WEBHOOK_URL }}
           DOCKHAND_WEBHOOK_SECRET: ${{ secrets.DOCKHAND_WEBHOOK_SECRET }}
         run: |
-          PAYLOAD='{}'
+          IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY,,}:latest"
+          PAYLOAD=$(printf '{"image":"%s"}' "$IMAGE_NAME")
           SIGNATURE="sha256=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "$DOCKHAND_WEBHOOK_SECRET" | awk '{print $NF}')"
 
           curl -sf -X POST "$DOCKHAND_WEBHOOK_URL" \
