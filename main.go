@@ -28,6 +28,9 @@ import (
 //go:embed api.yaml
 var swaggerUI embed.FS
 
+//go:embed VERSION
+var version string
+
 const shutdownTimeout = 10 * time.Second
 
 func main() {
@@ -75,6 +78,7 @@ func main() {
 	}
 
 	log.Info().
+		Str("version", strings.TrimSpace(version)).
 		Str("listen_addr", cfg.Addr()).
 		Int("max_concurrent_games", cfg.MaxConcurrentGames).
 		Str("wordlist_path", cfg.WordlistPath).
