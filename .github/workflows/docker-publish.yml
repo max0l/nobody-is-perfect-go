@@ -53,3 +53,19 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+  deploy:
+    needs: docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Dockhand deploy
+        env:
+          DOCKHAND_WEBHOOK_URL: ${{ secrets.DOCKHAND_WEBHOOK_URL }}
+          DOCKHAND_WEBHOOK_SECRET: ${{ secrets.DOCKHAND_WEBHOOK_SECRET }}
+        run: |
+          PAYLOAD='{}'
+          SIGNATURE="sha256=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "$DOCKHAND_WEBHOOK_SECRET" | awk '{print $NF}')"
+
+          curl -sf -X POST "$DOCKHAND_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-Hub-Signature-256: $SIGNATURE" \
+            -d "$PAYLOAD"
