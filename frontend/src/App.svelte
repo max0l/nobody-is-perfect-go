@@ -243,7 +243,9 @@
   }
 
   async function loadPhaseData() {
-    if (["verifying", "voting", "revealed"].includes(currentRoundStatus())) {
+    const roundStatus = currentRoundStatus();
+    const canSeeAnswers = ["voting", "revealed"].includes(roundStatus) || (roundStatus === "verifying" && status?.roundMasterUUID === userUUID);
+    if (canSeeAnswers) {
       try {
         const data = await api(`/api/game/${encodeURIComponent(gameId)}/answers`, { quiet: true });
         answers = data.answers || [];
@@ -251,8 +253,10 @@
         if (isGameNotFound(error)) throw error;
         answers = [];
       }
+    } else {
+      answers = [];
     }
-    if (currentRoundStatus() === "revealed") {
+    if (roundStatus === "revealed") {
       try {
         const data = await api(`/api/game/${encodeURIComponent(gameId)}/reveal`, { quiet: true });
         revealed = data.answers || [];

@@ -42,3 +42,17 @@ func TestRegisterRoutesServesAssets(t *testing.T) {
 		t.Fatalf("expected frontend script, got %q", response.Body.String())
 	}
 }
+
+func TestRegisterRoutesHandlesFavicon(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	RegisterRoutes(router)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/favicon.ico", nil)
+	router.ServeHTTP(response, request)
+
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("expected status %d, got %d", http.StatusNoContent, response.Code)
+	}
+}

@@ -21,6 +21,9 @@ type indexData struct {
 
 func RegisterRoutes(router gin.IRouter) {
 	router.GET("/", renderIndex(""))
+	router.GET("/favicon.ico", func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
 	router.GET("/game/:gameId", func(c *gin.Context) {
 		renderIndex(c.Param("gameId"))(c)
 	})

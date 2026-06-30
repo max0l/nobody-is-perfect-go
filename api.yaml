@@ -3,7 +3,7 @@ servers:
   - url: http://localhost:8080
     description: Local development server
 info:
-  version: 0.0.1
+  version: 0.0.2
   title: Nobody is Perfect - Go
   description: |-
     Simple Web application to make the sharing of written text easier.
