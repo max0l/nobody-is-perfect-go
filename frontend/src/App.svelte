@@ -486,6 +486,10 @@
     return Boolean(answerUUID && currentAnswerUUID && answerUUID === currentAnswerUUID);
   }
 
+  function isRoundMasterAnswer(answer) {
+    return Boolean(answer?.userUUID && status?.roundMasterUUID && answer.userUUID === status.roundMasterUUID);
+  }
+
   function needsEmergencyConfirmation(action) {
     if (action === "finish") return true;
     if (action === "startVerification") return isGameOwner && (!allPlayersAnswered || !hasEnoughPlayers);
@@ -662,8 +666,8 @@
       {:else}
         <div class="answers">
           {#each revealed as answer (answer.answerUUID)}
-            <article class:selected-vote={isStoredVote(answer.answerUUID)} class="answer-card revealed">
-              <div><strong>{answer.label || "?"} by {answer.username || "unknown"}</strong>{#if isStoredVote(answer.answerUUID)}<span class="vote-label">Your vote</span>{/if}<p>{answer.answer || ""}</p><small>Votes: {voteNames(answer)}</small></div>
+            <article class:selected-vote={isStoredVote(answer.answerUUID)} class:round-master-answer={isRoundMasterAnswer(answer)} class="answer-card revealed">
+              <div><strong>{answer.label || "?"} by {answer.username || "unknown"}</strong>{#if isRoundMasterAnswer(answer)}<span class="round-master-label">Round master</span>{/if}{#if isStoredVote(answer.answerUUID)}<span class="vote-label">Your vote</span>{/if}<p>{answer.answer || ""}</p><small>Votes: {voteNames(answer)}</small></div>
             </article>
           {/each}
         </div>

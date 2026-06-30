@@ -384,6 +384,12 @@ p { margin: 0; }
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--good) 70%, transparent);
 }
 
+.answer-card.round-master-answer {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 72%, transparent);
+}
+
 .vote-label {
   display: inline-flex;
   width: max-content;
@@ -392,6 +398,18 @@ p { margin: 0; }
   background: var(--good);
   color: white;
   padding: 0.15rem 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.round-master-label {
+  display: inline-flex;
+  width: max-content;
+  margin-left: 0.45rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--button-ink);
+  padding: 0.12rem 0.5rem;
   font-size: 0.78rem;
   font-weight: 900;
 }
