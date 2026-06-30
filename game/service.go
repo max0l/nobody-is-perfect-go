@@ -111,14 +111,17 @@ func (s *Service) GetSystemStatus() SystemStatusView {
 	return status
 }
 
-func loadWords(path string) ([]string, error) {
+func loadWords(path string) (words []string, err error) {
 	file, err := openWordsFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read words file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if closeErr := file.Close(); err == nil && closeErr != nil {
+			err = fmt.Errorf("failed to close words file: %w", closeErr)
+		}
+	}()
 
-	var words []string
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		word := scanner.Text()

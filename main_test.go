@@ -73,7 +73,9 @@ func TestZerologLevelMapsConfiguredLevel(t *testing.T) {
 func TestPrintVersionGreetingIncludesTrimmedVersion(t *testing.T) {
 	var buf bytes.Buffer
 
-	printVersionGreeting(&buf, "1.2.3\n")
+	if err := printVersionGreeting(&buf, "1.2.3\n"); err != nil {
+		t.Fatalf("printVersionGreeting returned error: %v", err)
+	}
 
 	expected := "Hello from nobody-is-perfect-go 1.2.3\n"
 	if buf.String() != expected {

@@ -80,7 +80,9 @@ func main() {
 		Addr:    cfg.Addr(),
 	}
 
-	printVersionGreeting(os.Stdout, version)
+	if err := printVersionGreeting(os.Stdout, version); err != nil {
+		log.Fatal().Err(err).Msg("print version greeting")
+	}
 	log.Info().
 		Str("listen_addr", cfg.Addr()).
 		Int("max_concurrent_games", cfg.MaxConcurrentGames).
@@ -94,8 +96,9 @@ func main() {
 	}
 }
 
-func printVersionGreeting(w io.Writer, version string) {
-	fmt.Fprintf(w, "Hello from nobody-is-perfect-go %s\n", strings.TrimSpace(version))
+func printVersionGreeting(w io.Writer, version string) error {
+	_, err := fmt.Fprintf(w, "Hello from nobody-is-perfect-go %s\n", strings.TrimSpace(version))
+	return err
 }
 
 func runHTTPServer(s *http.Server) error {
