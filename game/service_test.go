@@ -859,6 +859,62 @@ func TestHostCanStartVerificationAndRevealEarly(t *testing.T) {
 	}
 }
 
+func TestBelowMinimumPlayersBlocksNonHostProgressionExceptVotingReveal(t *testing.T) {
+	service, gameID, owner, player := serviceWithTwoPlayers(t)
+	third := addServicePlayer(t, service, gameID, "third")
+	if err := service.SetPlayOrder(gameID, *owner.GetUserToken(), []SetPlayOrderEntry{
+		{UserUUID: *player.GetUserID(), Place: 1},
+		{UserUUID: *owner.GetUserID(), Place: 2},
+		{UserUUID: *third.GetUserID(), Place: 3},
+	}); err != nil {
+		t.Fatalf("SetPlayOrder returned error: %v", err)
+	}
+	if err := service.StartGame(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("StartGame returned error: %v", err)
+	}
+
+	ownerAnswer := "owner answer"
+	playerAnswer := "player answer"
+	if err := service.SendAnswer(gameID, *owner.GetUserToken(), &ownerAnswer); err != nil {
+		t.Fatalf("SendAnswer owner returned error: %v", err)
+	}
+	if err := service.SendAnswer(gameID, *player.GetUserToken(), &playerAnswer); err != nil {
+		t.Fatalf("SendAnswer player returned error: %v", err)
+	}
+	if err := service.LeaveGame(gameID, *third.GetUserToken()); err != nil {
+		t.Fatalf("LeaveGame third returned error: %v", err)
+	}
+	if err := service.StartVerification(gameID, *player.GetUserToken()); !errors.Is(err, ErrInvalidRound) {
+		t.Fatalf("expected non-host verification below minimum to fail, got %v", err)
+	}
+	if err := service.StartVerification(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("host StartVerification below minimum returned error: %v", err)
+	}
+	if err := service.StartVoting(gameID, *player.GetUserToken()); !errors.Is(err, ErrInvalidRound) {
+		t.Fatalf("expected non-host voting below minimum to fail, got %v", err)
+	}
+	if err := service.StartVoting(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("host StartVoting below minimum returned error: %v", err)
+	}
+
+	answers, err := service.GetAnswers(gameID, *owner.GetUserToken())
+	if err != nil {
+		t.Fatalf("GetAnswers returned error: %v", err)
+	}
+	if err := service.VoteForAnswer(gameID, *owner.GetUserToken(), answers[0].AnswerID); err != nil {
+		t.Fatalf("VoteForAnswer owner returned error: %v", err)
+	}
+	if _, err := service.RevealRound(gameID, *player.GetUserToken()); err != nil {
+		t.Fatalf("non-host round master RevealRound during voting below minimum returned error: %v", err)
+	}
+	if err := service.NextRound(gameID, *player.GetUserToken()); !errors.Is(err, ErrInvalidRound) {
+		t.Fatalf("expected non-host next round below minimum to fail, got %v", err)
+	}
+	if err := service.NextRound(gameID, *owner.GetUserToken()); err != nil {
+		t.Fatalf("host NextRound below minimum returned error: %v", err)
+	}
+}
+
 func TestVotingRevealAndNextRoundFlow(t *testing.T) {
 	service, gameID, owner, player := serviceWithTwoPlayers(t)
 	third := addServicePlayer(t, service, gameID, "third")

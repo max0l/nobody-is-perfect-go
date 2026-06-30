@@ -79,6 +79,9 @@ func (s *Service) StartVoting(gameID string, token uuid.UUID) error {
 	if state.status != RoundStatusVerifying {
 		return ErrInvalidRound
 	}
+	if game.gameOwner != user.userID && len(game.players) < MinPlayersToStart {
+		return ErrInvalidRound
+	}
 
 	state.status = RoundStatusVoting
 	ensureScrambled(s, state)
@@ -102,6 +105,9 @@ func (s *Service) StartVerification(gameID string, token uuid.UUID) error {
 		return ErrForbidden
 	}
 	if state.status != RoundStatusAnswering {
+		return ErrInvalidRound
+	}
+	if game.gameOwner != user.userID && len(game.players) < MinPlayersToStart {
 		return ErrInvalidRound
 	}
 	if game.gameOwner != user.userID && len(state.answersByUser) < len(game.players) {
@@ -178,6 +184,9 @@ func (s *Service) NextRound(gameID string, token uuid.UUID) error {
 		return ErrForbidden
 	}
 	if state.status != RoundStatusRevealed {
+		return ErrInvalidRound
+	}
+	if game.gameOwner != user.userID && len(game.players) < MinPlayersToStart {
 		return ErrInvalidRound
 	}
 

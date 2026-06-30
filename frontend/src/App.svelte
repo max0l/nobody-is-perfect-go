@@ -34,6 +34,7 @@
   $: canLead = status?.gameMasterUUID === userUUID || status?.roundMasterUUID === userUUID;
   $: currentAnswer = status?.currentAnswer || "";
   $: currentAnswerUUID = status?.currentAnswerUUID || "";
+  $: hasEnoughPlayers = (status?.playerCount || 0) >= 3;
   $: allPlayersAnswered = (status?.receivedAnswers || 0) >= (status?.playerCount || 0);
   $: requiredVotes = Math.max((status?.playerCount || 0) - 1, 0);
   $: allEligiblePlayersVoted = (status?.receivedVotes || 0) >= requiredVotes;
@@ -486,15 +487,19 @@
 
   function needsEmergencyConfirmation(action) {
     if (action === "finish") return true;
-    if (action === "startVerification") return isGameOwner && !allPlayersAnswered;
+    if (action === "startVerification") return isGameOwner && (!allPlayersAnswered || !hasEnoughPlayers);
+    if (action === "startVoting") return isGameOwner && !hasEnoughPlayers;
     if (action === "reveal") return isGameOwner && !allEligiblePlayersVoted;
+    if (action === "next") return isGameOwner && !hasEnoughPlayers;
     return false;
   }
 
   function confirmEmergencyAction(action) {
     const messages = {
-      startVerification: "Not all players have submitted an answer. Review answers anyway?",
+      startVerification: "Not all players have submitted an answer or fewer than 3 players are active. Review answers anyway?",
+      startVoting: "There are fewer than 3 players. Start voting anyway?",
       reveal: "Not all eligible players have voted. Reveal votes anyway?",
+      next: "There are fewer than 3 players. Start the next round anyway?",
       finish: "Finishing ends the game for everyone. Finish the game now?",
     };
     return window.confirm(messages[action] || "Continue?");
@@ -564,7 +569,9 @@
       {@render Stats()}
       {#if status?.roundMasterUUID === userUUID}
         <p class="waiting">You are the round master. You can submit your own answer, then review all answers.</p>
-        {#if allPlayersAnswered}
+        {#if !hasEnoughPlayers}
+          <p class="waiting">Waiting for at least 3 players to continue.</p>
+        {:else if allPlayersAnswered}
           <button class="primary" disabled={busy} on:click={() => runAction("startVerification")}>Review answers</button>
         {:else}
           <p class="waiting">Waiting for all players to submit answers.</p>
@@ -603,7 +610,11 @@
             {/each}
           </div>
         {/if}
-        <button class="primary" disabled={busy} on:click={() => runAction("startVoting")}>Start voting</button>
+        {#if hasEnoughPlayers}
+          <button class="primary" disabled={busy} on:click={() => runAction("startVoting")}>Start voting</button>
+        {:else}
+          <p class="waiting">Waiting for at least 3 players to continue.</p>
+        {/if}
       {:else}
         <p class="waiting">The round master is reviewing the answers.</p>
       {/if}
@@ -647,8 +658,10 @@
           {/each}
         </div>
       {/if}
-      {#if canLead}
+      {#if status?.roundMasterUUID === userUUID && hasEnoughPlayers}
         <button class="primary" disabled={busy} on:click={() => runAction("next")}>Next round</button>
+      {:else if status?.roundMasterUUID === userUUID}
+        <p class="waiting">Waiting for at least 3 players to continue.</p>
       {:else}
         <p class="waiting">Waiting for the next round.</p>
       {/if}
@@ -724,16 +737,19 @@
       </button>
       <div id="host-settings-panel" class="menu-panel" hidden={!hostSettingsOpen}>
         {#if roundStatus === "answering" && status?.roundMasterUUID !== userUUID}
-          <button disabled={busy} on:click={() => runAction("startVerification")}>{allPlayersAnswered ? "Review answers" : "Emergency review answers"}</button>
+          <button disabled={busy} on:click={() => runAction("startVerification")}>{allPlayersAnswered && hasEnoughPlayers ? "Review answers" : "Emergency review answers"}</button>
         {/if}
-        {#if roundStatus === "answering" && status?.roundMasterUUID === userUUID && !allPlayersAnswered}
+        {#if roundStatus === "answering" && status?.roundMasterUUID === userUUID && (!allPlayersAnswered || !hasEnoughPlayers)}
           <button disabled={busy} on:click={() => runAction("startVerification")}>Emergency review answers</button>
         {/if}
-        {#if roundStatus === "verifying" && status?.roundMasterUUID !== userUUID}
-          <button disabled={busy} on:click={() => runAction("startVoting")}>Emergency start voting</button>
+        {#if roundStatus === "verifying" && (status?.roundMasterUUID !== userUUID || !hasEnoughPlayers)}
+          <button disabled={busy} on:click={() => runAction("startVoting")}>{hasEnoughPlayers ? "Start voting" : "Emergency start voting"}</button>
         {/if}
         {#if roundStatus === "voting" && (status?.roundMasterUUID !== userUUID || !allEligiblePlayersVoted)}
           <button class:danger={!allEligiblePlayersVoted} disabled={busy} on:click={() => runAction("reveal")}>{allEligiblePlayersVoted ? "Reveal votes" : "Emergency reveal votes"}</button>
+        {/if}
+        {#if roundStatus === "revealed" && (status?.roundMasterUUID !== userUUID || !hasEnoughPlayers)}
+          <button disabled={busy} on:click={() => runAction("next")}>{hasEnoughPlayers ? "Next round" : "Emergency next round"}</button>
         {/if}
         <button class="danger" disabled={busy} on:click={() => runAction("finish")}>Finish game</button>
       </div>
