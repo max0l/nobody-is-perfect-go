@@ -129,7 +129,7 @@ docker pull ghcr.io/max0l/nobody-is-perfect-go:latest
 docker run --rm -p 8080:8080 ghcr.io/max0l/nobody-is-perfect-go:latest
 ```
 
-Images are published only for pushes to `main` and Git tags matching `v*`.
+Images are published only for Git tags matching `v*` when the tagged commit is on `main`. Versioned image tags omit the leading `v`; for example, Git tag `v1.2.3` publishes `ghcr.io/max0l/nobody-is-perfect-go:1.2.3`. Tag builds also update `latest`.
 
 Run with Docker Compose:
 
