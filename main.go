@@ -4,6 +4,8 @@ import (
 	"context"
 	"embed"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -78,8 +80,8 @@ func main() {
 		Addr:    cfg.Addr(),
 	}
 
+	printVersionGreeting(os.Stdout, version)
 	log.Info().
-		Str("version", strings.TrimSpace(version)).
 		Str("listen_addr", cfg.Addr()).
 		Int("max_concurrent_games", cfg.MaxConcurrentGames).
 		Str("wordlist_path", cfg.WordlistPath).
@@ -90,6 +92,10 @@ func main() {
 	if err := runHTTPServer(s); err != nil {
 		log.Fatal().Err(err).Msg("http server stopped")
 	}
+}
+
+func printVersionGreeting(w io.Writer, version string) {
+	fmt.Fprintf(w, "Hello from nobody-is-perfect-go %s\n", strings.TrimSpace(version))
 }
 
 func runHTTPServer(s *http.Server) error {

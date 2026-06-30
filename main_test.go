@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -66,5 +67,16 @@ func TestZerologLevelMapsConfiguredLevel(t *testing.T) {
 		if actual := zerologLevel(level); actual != expected {
 			t.Fatalf("expected %q to map to %s, got %s", level, expected, actual)
 		}
+	}
+}
+
+func TestPrintVersionGreetingIncludesTrimmedVersion(t *testing.T) {
+	var buf bytes.Buffer
+
+	printVersionGreeting(&buf, "1.2.3\n")
+
+	expected := "Hello from nobody-is-perfect-go 1.2.3\n"
+	if buf.String() != expected {
+		t.Fatalf("expected greeting %q, got %q", expected, buf.String())
 	}
 }
