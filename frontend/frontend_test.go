@@ -38,7 +38,7 @@ func TestRegisterRoutesServesAssets(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected status %d, got %d", http.StatusOK, response.Code)
 	}
-	if !strings.Contains(response.Body.String(), "function init()") {
+	if !strings.Contains(response.Body.String(), "Nobody is Perfect") {
 		t.Fatalf("expected frontend script, got %q", response.Body.String())
 	}
 }

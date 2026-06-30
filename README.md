@@ -9,6 +9,7 @@ The service manages users, games, player order, round phases, answers, voting, r
 ## Requirements
 
 - Go `1.26.4`
+- Node.js `24` or newer for rebuilding the Svelte frontend
 - Optional but recommended: [`go-task`](https://taskfile.dev/)
 
 Install `go-task`:
@@ -21,6 +22,7 @@ go install github.com/go-task/task/v3/cmd/task@latest
 
 ```sh
 task generate
+task frontend-build
 task test
 task verify
 task build
@@ -30,8 +32,23 @@ Without `task`:
 
 ```sh
 go generate ./api
+npm ci
+npm run build
 go test ./...
 go build ./...
+```
+
+## Frontend
+
+The browser UI is implemented with Svelte and Vite under `frontend/src`.
+
+Generated assets are written to `frontend/static` and are embedded into the Go binary. Commit both the Svelte source and the generated `frontend/static/app.js` and `frontend/static/app.css` so `go test ./...` and `go build ./...` continue to work immediately after cloning.
+
+Rebuild the frontend after UI changes:
+
+```sh
+npm ci
+npm run build
 ```
 
 ## Running The Server

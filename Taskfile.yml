@@ -39,11 +39,17 @@ tasks:
     cmds:
       - go test ./...
 
+  frontend-build:
+    desc: Build the Svelte frontend
+    cmds:
+      - npm run build
+
   verify:
     desc: Run pre-commit quality checks
     cmds:
       - task: fmt-check
       - task: generate-check
+      - task: frontend-build
       - task: test
 
   install-hooks:
@@ -54,4 +60,5 @@ tasks:
   build:
     desc: Build the application
     cmds:
+      - task: frontend-build
       - go build ./...

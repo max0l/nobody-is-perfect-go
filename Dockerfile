@@ -1,3 +1,14 @@
+FROM node:24-alpine AS frontend-build
+
+WORKDIR /src
+
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY vite.config.js ./
+COPY frontend/src ./frontend/src
+RUN npm run build
+
 FROM golang:1.26.4-alpine AS build
 
 WORKDIR /src
@@ -6,6 +17,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
+COPY --from=frontend-build /src/frontend/static ./frontend/static
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/nobody-is-perfect-go .
 
 FROM scratch
