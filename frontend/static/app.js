@@ -55,7 +55,7 @@ function bindStageEvents() {
         localStorage.setItem("nip.username", username);
         notice(`Session started for ${username}`);
         if (state.gameId) {
-          renderStage("choose");
+          await joinGame(state.gameId);
         } else {
           renderStage();
         }
@@ -93,9 +93,7 @@ function bindStageEvents() {
       const gameId = fieldValue("join-game-id");
       if (!gameId) return;
       await withBusy(async () => {
-        await api(`/api/join/${encodeURIComponent(gameId)}`, { method: "POST" });
-        await enterGame(gameId, false);
-        notice(`Joined game ${gameId}`);
+        await joinGame(gameId);
       });
     });
   }
@@ -241,6 +239,24 @@ async function enterGame(gameId, replace) {
   if (!state.gameId) return;
   loadStoredVote();
   startTimers();
+}
+
+async function joinGame(gameId) {
+  try {
+    await api(`/api/join/${encodeURIComponent(gameId)}`, { method: "POST" });
+    await enterGame(gameId, false);
+    notice(`Joined game ${gameId}`);
+  } catch (error) {
+    if (state.gameId === gameId && !state.status) clearPendingGame();
+    throw error;
+  }
+}
+
+function clearPendingGame() {
+  state.gameId = "";
+  state.status = null;
+  localStorage.removeItem("nip.gameId");
+  if (location.pathname !== "/") history.pushState(null, "", "/");
 }
 
 function leaveGame() {
